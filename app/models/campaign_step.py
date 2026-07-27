@@ -1,8 +1,7 @@
 """Campaign step model."""
 
-from sqlalchemy import Column, Integer, JSON, ForeignKey, UniqueConstraint
+from sqlalchemy import JSON, Column, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
 
 from app.db import Base
 
@@ -22,9 +21,7 @@ class CampaignStep(Base):
     delay_hours = Column(Integer, nullable=False, default=0)
     send_condition = Column(JSON, nullable=False, server_default="{}")
 
-    __table_args__ = (
-        UniqueConstraint("campaign_id", "step_index"),
-    )
+    __table_args__ = (UniqueConstraint("campaign_id", "step_index"),)
 
     def __repr__(self) -> str:
         return f"<CampaignStep(campaign_id={self.campaign_id}, step_index={self.step_index})>"

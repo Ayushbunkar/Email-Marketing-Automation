@@ -1,10 +1,9 @@
 """Campaign model and related types."""
 
-from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import Column, String, Text, JSON, DateTime, func
-from sqlalchemy.dialects.postgresql import UUID, ENUM
+from sqlalchemy import JSON, Column, DateTime, String, Text, func
+from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.sql import func
 
 from app.db import Base

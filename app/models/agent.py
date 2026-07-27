@@ -2,8 +2,16 @@
 
 from enum import Enum
 
-from sqlalchemy import Column, String, Text, JSON, DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, ENUM
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.sql import func
 
 from app.db import Base
@@ -90,10 +98,11 @@ class Approval(Base):
     notes = Column(Text)
 
     __table_args__ = (
-        func.unique(
+        UniqueConstraint(
             subject_type,
             subject_id,
-        ).where(status == "pending"),
+            name="uq_approval_unique_pending",
+        ),
     )
 
     def __repr__(self) -> str:

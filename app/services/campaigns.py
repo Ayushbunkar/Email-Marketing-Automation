@@ -1,15 +1,16 @@
 """Campaign service for managing email campaigns."""
 
-from typing import List, Optional, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
 
 from app.models.campaign import Campaign, CampaignStatus, CampaignType
 from app.models.campaign_step import CampaignStep
-from app.models.template import Template
 from app.models.message import Message, MessageStatus
+from app.models.template import Template
 
 
 async def create_campaign(
@@ -38,17 +39,15 @@ async def create_campaign(
 
 async def get_campaign(session: AsyncSession, campaign_id: str) -> Optional[Campaign]:
     """Get a campaign by ID."""
-    result = await session.execute(
-        select(Campaign).where(Campaign.id == campaign_id)
-    )
+    result = await session.execute(select(Campaign).where(Campaign.id == campaign_id))
     return result.scalar_one_or_none()
 
 
-async def get_campaign_with_steps(session: AsyncSession, campaign_id: str) -> Optional[Campaign]:
+async def get_campaign_with_steps(
+    session: AsyncSession, campaign_id: str
+) -> Optional[Campaign]:
     """Get a campaign with its steps."""
-    result = await session.execute(
-        select(Campaign).where(Campaign.id == campaign_id)
-    )
+    result = await session.execute(select(Campaign).where(Campaign.id == campaign_id))
     campaign = result.scalar_one_or_none()
     if campaign:
         result = await session.execute(
@@ -83,9 +82,7 @@ async def update_campaign_status(
     approved_by: Optional[str] = None,
 ) -> Optional[Campaign]:
     """Update campaign status."""
-    result = await session.execute(
-        select(Campaign).where(Campaign.id == campaign_id)
-    )
+    result = await session.execute(select(Campaign).where(Campaign.id == campaign_id))
     campaign = result.scalar_one_or_none()
     if campaign:
         campaign.status = status

@@ -12,33 +12,33 @@ down:
 
 # Run database migrations
 db:
-	poetry run alembic upgrade head
+	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe -m alembic upgrade head
 
 # Seed demo data
 seed:
-	poetry run python scripts/seed_demo.py
+	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe scripts/seed_demo.py
 
 # Start development server
 dev:
-	poetry run uvicorn app.main:app --reload
+	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe -m uvicorn app.main:app --reload
 
 # Start Celery worker
 worker:
-	poetry run celery -A app.workers.celery_app worker -l info
+	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe -m celery -A app.workers.celery_app worker -l info
 
 # Start Celery beat (scheduled tasks)
 beat:
-	poetry run celery -A app.workers.celery_app beat -l info
+	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe -m celery -A app.workers.celery_app beat -l info
 
 # Run tests
 test:
-	poetry run pytest -q
+	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe -m pytest -q
 
 # Run linter and formatter
 lint:
-	poetry run ruff check .
-	poetry run ruff format --check .
+	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe -m ruff check .
+	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe -m ruff format --check .
 
 # Generate demo events (for testing)
 demo-events:
-	poetry run python scripts/generate_demo_events.py
+	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe scripts/generate_demo_events.py

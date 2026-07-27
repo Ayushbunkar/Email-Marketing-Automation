@@ -1,4 +1,4 @@
-"""Resend email provider driver."""
+"""Brevo email provider driver."""
 
 import hashlib
 import hmac
@@ -11,40 +11,41 @@ from app.config import settings
 from app.providers.base import EmailProvider, NormalizedEvent, SendRequest, SendResult
 
 
-class ResendProvider(EmailProvider):
-    """Resend email provider driver."""
+class BrevoProvider(EmailProvider):
+    """Brevo email provider driver."""
 
     def __init__(self, api_key: str = None):
-        """Initialize the Resend provider."""
-        self.api_key = api_key or settings.RESEND_API_KEY
-        self.base_url = "https://api.resend.com"
+        """Initialize the Brevo provider."""
+        self.api_key = api_key or settings.BREVO_API_KEY
+        self.base_url = "https://api.brevo.com/v3"
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             headers={
-                "Authorization": f"Bearer {self.api_key}",
+                "api-key": self.api_key,
                 "Content-Type": "application/json",
             },
             timeout=30.0,
         )
 
     async def send(self, req: SendRequest) -> SendResult:
-        """Send an email via Resend API."""
+        """Send an email via Brevo API."""
         try:
             response = await self.client.post(
-                "/emails",
+                "/smtp/email",
                 json={
-                    "from": f"{req.from_name} <{req.from_email}>",
-                    "to": [req.to_email],
+                    "sender": {"name": req.from_name, "email": req.from_email},
+                    "to": [{"email": req.to_email, "name": req.to_name or ""}],
                     "subject": req.subject,
-                    "html": req.html,
-                    "text": req.text,
+                    "htmlContent": req.html,
+                    "textContent": req.text,
                     "headers": req.headers,
+                    "replyTo": {"email": req.reply_to},
                 },
             )
             response.raise_for_status()
             data = response.json()
             return SendResult(
-                provider_message_id=data.get("id", ""),
+                provider_message_id=data.get("messageId", ""),
                 accepted=True,
                 error=None,
             )
@@ -62,13 +63,13 @@ class ResendProvider(EmailProvider):
             )
 
     def verify_webhook(self, headers: Dict[str, str], body: bytes) -> bool:
-        """Verify Resend webhook signature."""
-        signature = headers.get("X-Signature", "")
+        """Verify Brevo webhook signature."""
+        signature = headers.get("api-key", "")
         if not signature:
             return False
 
         expected_signature = hmac.new(
-            key=settings.RESEND_WEBHOOK_SECRET.encode(),
+            key=settings.BREVO_WEBHOOK_SECRET.encode(),
             msg=body,
             digestmod=hashlib.sha256,
         ).hexdigest()
@@ -76,26 +77,29 @@ class ResendProvider(EmailProvider):
         return hmac.compare_digest(signature, expected_signature)
 
     def parse_webhook(self, body: bytes) -> List[NormalizedEvent]:
-        """Parse Resend webhook payload."""
+        """Parse Brevo webhook payload."""
         try:
             data = json.loads(body)
-            event_type = data.get("type", "")
+            event_type = data.get("event", "")
 
-            # Map Resend event types to our event types
+            # Map Brevo event types to our event types
             event_map = {
-                "email.delivered": "delivered",
-                "email.opened": "open",
-                "email.clicked": "click",
-                "email.bounced": "bounce_hard",
-                "email.complained": "complaint",
-                "email.unsubscribed": "unsubscribe",
+                "sent": "delivered",
+                "delivered": "delivered",
+                "open": "open",
+                "click": "click",
+                "bounce": "bounce_hard",
+                "spam": "complaint",
+                "unsub": "unsubscribe",
+                "blocked": "bounce_hard",
+                "invalid_email": "bounce_hard",
             }
 
             return [
                 NormalizedEvent(
                     event_type=event_map.get(event_type, event_type),
-                    message_id=data.get("id"),
-                    contact_id=data.get("to", [None])[0],
+                    message_id=data.get("messageId"),
+                    contact_id=data.get("email"),
                     payload=data,
                 )
             ]

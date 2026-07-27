@@ -1,6 +1,7 @@
 """Email provider base classes and protocols."""
 
-from typing import Protocol, Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional, Protocol
+
 from pydantic import BaseModel
 
 

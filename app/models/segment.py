@@ -1,8 +1,6 @@
 """Segment model."""
 
-from datetime import datetime
-
-from sqlalchemy import Column, String, Text, JSON, DateTime, func
+from sqlalchemy import JSON, Boolean, Column, DateTime, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
@@ -22,7 +20,7 @@ class Segment(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text)
     definition = Column(JSON, nullable=False, server_default="{}")
-    is_dynamic = Column(JSON, nullable=False, server_default="true")
+    is_dynamic = Column(Boolean, nullable=False, server_default="true")
     created_by = Column(String(50), nullable=False)
 
     created_at = Column(

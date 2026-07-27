@@ -93,6 +93,16 @@ class Settings(BaseSettings):
         description="Company postal address for email footer",
     )
 
+    # --- Brevo ---
+    BREVO_API_KEY: str = Field(
+        default="",
+        description="Brevo API key (required when EMAIL_PROVIDER=brevo)",
+    )
+    BREVO_WEBHOOK_SECRET: str = Field(
+        default="",
+        description="Brevo webhook secret for signature verification",
+    )
+
     # --- Inbound (IMAP) ---
     IMAP_HOST: str = Field(
         default="",

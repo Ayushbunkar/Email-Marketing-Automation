@@ -1,6 +1,7 @@
 """Celery app configuration for Hermes."""
 
 import os
+
 from celery import Celery
 
 # Set default Django settings module

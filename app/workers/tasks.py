@@ -3,17 +3,14 @@
 import asyncio
 import os
 from datetime import datetime, timedelta
-from typing import List
 
 from celery import shared_task
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 
-from app.db import AsyncSession, get_session
+from app.db import get_session
+from app.models.event import Event
 from app.models.message import Message, MessageStatus
-from app.models.event import Event, EventType
-from app.services.messages import send_message, record_event
-from app.services.suppression import is_suppressed
-from app.providers.mock import MockProvider
+from app.services.messages import send_message
 
 
 @shared_task
@@ -87,7 +84,6 @@ def cleanup_old_events() -> int:
 
 async def _cleanup_old_events() -> int:
     """Clean up old events from the database."""
-    from sqlalchemy import func
 
     cutoff = datetime.utcnow() - timedelta(days=90)
     deleted = 0

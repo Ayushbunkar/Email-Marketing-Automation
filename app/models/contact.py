@@ -1,11 +1,10 @@
 """Contact model and related types."""
 
-from datetime import datetime
 from enum import Enum
-from typing import Any, Dict
 
-from sqlalchemy import Column, String, Text, JSON, DateTime, Index, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID, CITEXT, VECTOR
+from sqlalchemy import ARRAY, JSON, Column, DateTime, Float, Index, Text
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import CITEXT, UUID
 from sqlalchemy.sql import func
 
 from app.db import Base
@@ -64,7 +63,7 @@ class Contact(Base):
     consent_at = Column(DateTime(timezone=True))
     timezone = Column(Text, nullable=False, server_default="Asia/Kolkata")
     last_emailed_at = Column(DateTime(timezone=True))
-    embedding = Column(VECTOR(768))
+    embedding = Column(ARRAY(Float))
 
     created_at = Column(
         DateTime(timezone=True),

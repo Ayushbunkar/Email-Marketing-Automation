@@ -1,12 +1,11 @@
 """Mock email provider for development and testing."""
 
-import os
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from app.providers.base import EmailProvider, SendRequest, SendResult, NormalizedEvent
+from app.providers.base import EmailProvider, NormalizedEvent, SendRequest, SendResult
 
 
 class MockProvider(EmailProvider):
@@ -28,7 +27,7 @@ To: {req.to_name or req.to_email} <{req.to_email}>
 Subject: {req.subject}
 Date: {timestamp}
 Message-ID: <{message_id}@hermes.local>
-List-Unsubscribe: <{req.headers.get('List-Unsubscribe', '')}>
+List-Unsubscribe: <{req.headers.get("List-Unsubscribe", "")}>
 List-Unsubscribe-Post: List-Unsubscribe=One-Click
 
 {req.text}

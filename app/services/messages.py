@@ -1,18 +1,17 @@
 """Message service for sending and tracking emails."""
 
-import asyncio
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
 
 from app.config import settings
-from app.models.message import Message, MessageStatus
-from app.models.campaign import Campaign, CampaignStatus
 from app.models.contact import Contact, ContactStatus
-from app.models.suppression import Suppression, SuppressionReason
 from app.models.event import Event, EventType
+from app.models.message import Message, MessageStatus
+from app.models.suppression import Suppression
 from app.providers.base import SendRequest
 from app.providers.mock import MockProvider
 from app.providers.resend import ResendProvider
@@ -32,9 +31,7 @@ async def can_send_to_contact(
         return False
 
     # Check if contact is active
-    result = await session.execute(
-        select(Contact).where(Contact.id == contact_id)
-    )
+    result = await session.execute(select(Contact).where(Contact.id == contact_id))
     contact = result.scalar_one_or_none()
     if not contact or contact.status != ContactStatus.ACTIVE:
         return False
@@ -99,9 +96,7 @@ async def update_message_status(
     error: Optional[str] = None,
 ) -> Optional[Message]:
     """Update message status."""
-    result = await session.execute(
-        select(Message).where(Message.id == message_id)
-    )
+    result = await session.execute(select(Message).where(Message.id == message_id))
     message = result.scalar_one_or_none()
     if message:
         message.status = status
@@ -142,16 +137,18 @@ async def send_message(
     )
     contact = result.scalar_one_or_none()
     if not contact:
-        await update_message_status(session, message.id, MessageStatus.FAILED, "Contact not found")
+        await update_message_status(
+            session, message.id, MessageStatus.FAILED, "Contact not found"
+        )
         return False
 
     # Get template
-    result = await session.execute(
-        select(Message).where(Message.id == message.id)
-    )
+    result = await session.execute(select(Message).where(Message.id == message.id))
     msg = result.scalar_one_or_none()
     if not msg or not msg.template_id:
-        await update_message_status(session, message.id, MessageStatus.FAILED, "Template not found")
+        await update_message_status(
+            session, message.id, MessageStatus.FAILED, "Template not found"
+        )
         return False
 
     # Get provider
@@ -185,7 +182,9 @@ async def send_message(
         )
         return True
     else:
-        await update_message_status(session, message.id, MessageStatus.FAILED, result.error)
+        await update_message_status(
+            session, message.id, MessageStatus.FAILED, result.error
+        )
         return False
 
 

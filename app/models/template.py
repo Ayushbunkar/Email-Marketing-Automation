@@ -1,6 +1,6 @@
 """Template model."""
 
-from sqlalchemy import Column, String, Text, JSON, ForeignKey
+from sqlalchemy import JSON, Column, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 

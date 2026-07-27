@@ -1,12 +1,11 @@
 """IMAP provider for inbound email polling."""
 
 import asyncio
-from typing import List, Optional
-from datetime import datetime
+from typing import Dict, List, Optional
 
-from imap_tools import MailBox, A
+from imap_tools import A, MailBox
 
-from app.providers.base import EmailProvider, SendRequest, SendResult, NormalizedEvent
+from app.providers.base import EmailProvider, NormalizedEvent, SendRequest, SendResult
 
 
 class InboundIMAPProvider:
@@ -38,16 +37,18 @@ class InboundIMAPProvider:
             ) as mailbox:
                 mailbox.folder.set(self.folder)
                 for msg in mailbox.fetch(A(unseen=True)):
-                    messages.append({
-                        "from": msg.from_values,
-                        "to": msg.to,
-                        "subject": msg.subject,
-                        "text": msg.text,
-                        "html": msg.html,
-                        "uid": msg.uid,
-                        "date": msg.date,
-                        "headers": dict(msg.headers),
-                    })
+                    messages.append(
+                        {
+                            "from": msg.from_values,
+                            "to": msg.to,
+                            "subject": msg.subject,
+                            "text": msg.text,
+                            "html": msg.html,
+                            "uid": msg.uid,
+                            "date": msg.date,
+                            "headers": dict(msg.headers),
+                        }
+                    )
         except Exception as e:
             print(f"IMAP poll error: {e}")
         return messages
@@ -93,7 +94,14 @@ class InboundIMAPProvider:
 class InboundProvider(EmailProvider):
     """Email provider for inbound email handling."""
 
-    def __init__(self, host: str, port: int = 993, username: str = "", password: str = "", folder: str = "INBOX"):
+    def __init__(
+        self,
+        host: str,
+        port: int = 993,
+        username: str = "",
+        password: str = "",
+        folder: str = "INBOX",
+    ):
         """Initialize the inbound provider."""
         self.imap = InboundIMAPProvider(host, port, username, password, folder)
 
@@ -105,10 +113,10 @@ class InboundProvider(EmailProvider):
             error="Inbound provider does not support sending",
         )
 
-    def verify_webhook(self, headers: dict, body: bytes) -> bool:
-        """Verify webhook signature."""
+    def verify_webhook(self, headers: Dict[str, str], body: bytes) -> bool:
+        """Verify webhook signature - always returns True for IMAP (no webhook support)."""
         return True
 
     def parse_webhook(self, body: bytes) -> List[NormalizedEvent]:
-        """Parse webhook payload."""
+        """Parse webhook payload - returns empty list for IMAP (no webhook support)."""
         return []

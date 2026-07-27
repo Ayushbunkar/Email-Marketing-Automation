@@ -2,8 +2,16 @@
 
 from enum import Enum
 
-from sqlalchemy import Column, String, Text, JSON, DateTime, ForeignKey, UniqueConstraint, Index
-from sqlalchemy.dialects.postgresql import UUID, ENUM
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.sql import func
 
 from app.db import Base

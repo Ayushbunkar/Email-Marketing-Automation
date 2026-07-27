@@ -1,11 +1,12 @@
 """Contact service for CRM operations."""
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
 
-from app.models.contact import Contact, LifecycleStage, ContactStatus
+from app.models.contact import Contact, ContactStatus, LifecycleStage
 
 
 async def search_contacts(
@@ -39,9 +40,7 @@ async def search_contacts(
 
 async def get_contact_by_email(session: AsyncSession, email: str) -> Optional[Contact]:
     """Get a contact by email."""
-    result = await session.execute(
-        select(Contact).where(Contact.email == email)
-    )
+    result = await session.execute(select(Contact).where(Contact.email == email))
     return result.scalar_one_or_none()
 
 

@@ -1,11 +1,10 @@
 """Suppression service for managing email suppression list."""
 
-from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.models.suppression import Suppression, SuppressionReason
 from app.models.contact import Contact, ContactStatus
+from app.models.suppression import Suppression, SuppressionReason
 
 
 async def is_suppressed(session: AsyncSession, email: str) -> bool:
@@ -70,9 +69,7 @@ async def update_contact_status(
     reason: SuppressionReason,
 ) -> None:
     """Update contact status based on suppression reason."""
-    result = await session.execute(
-        select(Contact).where(Contact.email == email)
-    )
+    result = await session.execute(select(Contact).where(Contact.email == email))
     contact = result.scalar_one_or_none()
     if contact:
         status_map = {
