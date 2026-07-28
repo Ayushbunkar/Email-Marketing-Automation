@@ -25,10 +25,6 @@ beat_schedule = {
         "task": "app.workers.tasks.send_scheduled_messages",
         "schedule": 60.0,  # Every 60 seconds
     },
-    "poll-inbound-emails": {
-        "task": "app.workers.tasks.poll_inbound_emails",
-        "schedule": 120.0,  # Every 120 seconds
-    },
     "cleanup-old-events": {
         "task": "app.workers.tasks.cleanup_old_events",
         "schedule": 86400.0,  # Every 24 hours
@@ -38,6 +34,5 @@ beat_schedule = {
 # Task routes
 task_routes = {
     "app.workers.tasks.send_scheduled_messages": {"queue": "send"},
-    "app.workers.tasks.poll_inbound_emails": {"queue": "inbound"},
     "app.workers.tasks.cleanup_old_events": {"queue": "cleanup"},
 }

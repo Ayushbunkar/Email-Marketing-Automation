@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -135,6 +135,43 @@ async def email_webhook_endpoint(
         await suppress_contact_from_event(session, contact_email, event_type)
 
     return JSONResponse({"status": "received"})
+
+@router.post("/webhooks/brevo/inbound")
+async def brevo_inbound_webhook_endpoint(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    """Handle Brevo inbound email webhooks."""
+    from app.providers.brevo import BrevoProvider
+
+    # Get raw body for signature verification
+    body = await request.body()
+
+    # Verify webhook signature
+    provider = BrevoProvider()
+    if not provider.verify_inbound_webhook(request.headers, body):
+        return JSONResponse(
+            {"status": "error", "message": "Invalid webhook signature"},
+            status_code=401,
+        )
+
+    # Parse webhook payload
+    inbound_data = provider.parse_inbound_webhook(body)
+    if not inbound_data:
+        return JSONResponse(
+            {"status": "error", "message": "Invalid webhook payload"},
+            status_code=400,
+        )
+
+    # Process inbound email
+    try:
+        from app.services.inbox import process_brevo_inbound_email
+        await process_brevo_inbound_email(session, inbound_data)
+        return JSONResponse({"status": "received"})
+    except Exception as e:
+        # Log error but return success to avoid retry storms
+        print(f"Error processing inbound email: {e}")
+        return JSONResponse({"status": "received"})
 
 
 @router.get("/unsubscribe/{token}")

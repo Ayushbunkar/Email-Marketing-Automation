@@ -1,12 +1,10 @@
 """Basic tests for Hermes email marketing agent."""
 
-
 def test_app_import():
     """Test that the app module can be imported."""
     import app
 
     assert app is not None
-
 
 def test_config_import():
     """Test that the config module can be imported."""
@@ -14,14 +12,12 @@ def test_config_import():
 
     assert settings is not None
 
-
 def test_db_import():
     """Test that the db module can be imported."""
     from app.db import Base, engine
 
     assert engine is not None
     assert Base is not None
-
 
 def test_models_import():
     """Test that models can be imported."""
@@ -52,17 +48,17 @@ def test_models_import():
     assert Approval is not None
     assert Proposal is not None
 
-
 def test_providers_import():
     """Test that providers can be imported."""
     from app.providers.base import EmailProvider, SendRequest, SendResult
     from app.providers.mock import MockProvider
+    from app.providers.brevo import BrevoProvider
 
     assert EmailProvider is not None
     assert SendRequest is not None
     assert SendResult is not None
     assert MockProvider is not None
-
+    assert BrevoProvider is not None
 
 def test_services_functions_import():
     """Test that service functions can be imported."""
@@ -95,13 +91,11 @@ def test_services_functions_import():
     assert create_message is not None
     assert get_messages_to_send is not None
 
-
 def test_llm_import():
     """Test that LLM module can be imported."""
     from app.llm.client import LLMClient
 
     assert LLMClient is not None
-
 
 def test_workers_import():
     """Test that workers module can be imported."""
@@ -109,20 +103,17 @@ def test_workers_import():
 
     assert celery_app is not None
 
-
 def test_cli_import():
     """Test that CLI module can be imported."""
     from app.cli import app
 
     assert app is not None
 
-
 def test_routes_import():
     """Test that web routes can be imported."""
     from app.web.routes import router
 
     assert router is not None
-
 
 def test_templates_import():
     """Test that templates service can be imported."""
@@ -141,7 +132,6 @@ def test_templates_import():
     assert wrap_email_html is not None
     assert validate_template_variables is not None
     assert get_preview is not None
-
 
 def test_dispatcher_import():
     """Test that dispatcher service can be imported."""
@@ -181,7 +171,6 @@ def test_dispatcher_import():
     assert pause_campaign is not None
     assert resume_campaign is not None
 
-
 def test_segments_import():
     """Test that segments service can be imported."""
     from app.services.segments import (
@@ -205,7 +194,6 @@ def test_segments_import():
     assert create_segment is not None
     assert update_segment is not None
     assert delete_segment is not None
-
 
 def test_sequences_import():
     """Test that sequences service can be imported."""
@@ -231,37 +219,25 @@ def test_sequences_import():
     assert update_sequence_status is not None
     assert trigger_sequence is not None
 
-
 def test_inbox_import():
     """Test that inbox service can be imported."""
     from app.services.inbox import (
-        extract_email_address,
-        extract_text_from_html,
         find_or_create_contact,
-        find_or_create_thread,
         get_inbox_messages,
         get_inbox_threads,
         get_unread_count,
         mark_as_read,
         mark_thread_as_read,
-        parse_inbound_email,
-        poll_inbox,
-        process_inbound_email,
+        process_brevo_inbound_email,
     )
 
-    assert extract_text_from_html is not None
-    assert extract_email_address is not None
-    assert parse_inbound_email is not None
     assert find_or_create_contact is not None
-    assert find_or_create_thread is not None
-    assert process_inbound_email is not None
-    assert poll_inbox is not None
     assert mark_as_read is not None
     assert mark_thread_as_read is not None
     assert get_unread_count is not None
     assert get_inbox_messages is not None
     assert get_inbox_threads is not None
-
+    assert process_brevo_inbound_email is not None
 
 def test_analytics_import():
     """Test that analytics service can be imported."""
@@ -279,7 +255,6 @@ def test_analytics_import():
     assert get_variant_metrics is not None
     assert get_contact_metrics is not None
 
-
 def test_optimizer_import():
     """Test that optimizer service can be imported."""
     from app.services.optimizer import (
@@ -294,14 +269,12 @@ def test_optimizer_import():
     assert run_weekly_optimizer is not None
     assert apply_proposal is not None
 
-
 def test_agent_loop_import():
     """Test that agent loop can be imported."""
     from app.agent.loop import AgentLoop, run_agent
 
     assert AgentLoop is not None
     assert run_agent is not None
-
 
 def test_agent_tools_import():
     """Test that agent tools can be imported."""

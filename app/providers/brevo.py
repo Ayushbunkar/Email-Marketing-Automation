@@ -3,7 +3,7 @@
 import hashlib
 import hmac
 import json
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import httpx
 
@@ -105,6 +105,41 @@ class BrevoProvider(EmailProvider):
             ]
         except Exception:
             return []
+
+    def verify_inbound_webhook(self, headers: Dict[str, str], body: bytes) -> bool:
+        """Verify Brevo inbound email webhook signature."""
+        signature = headers.get("api-key", "")
+        if not signature:
+            return False
+
+        expected_signature = hmac.new(
+            key=settings.BREVO_INBOUND_WEBHOOK_SECRET.encode(),
+            msg=body,
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+
+        return hmac.compare_digest(signature, expected_signature)
+
+    def parse_inbound_webhook(self, body: bytes) -> Dict[str, Any]:
+        """Parse Brevo inbound email webhook payload."""
+        try:
+            data = json.loads(body)
+            return {
+                "from_email": data.get("sender", {}).get("email", ""),
+                "from_name": data.get("sender", {}).get("name", ""),
+                "to_email": data.get("recipients", [{}])[0].get("email", ""),
+                "subject": data.get("subject", ""),
+                "text_body": data.get("text", ""),
+                "html_body": data.get("html", ""),
+                "message_id": data.get("messageId", ""),
+                "thread_id": data.get("inReplyTo", ""),
+                "references": data.get("references", ""),
+                "attachments": data.get("attachments", []),
+                "received_at": data.get("date", ""),
+                "headers": data.get("headers", {}),
+            }
+        except Exception:
+            return {}
 
     async def close(self):
         """Close the HTTP client."""

@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # --- Email provider ---
     EMAIL_PROVIDER: str = Field(
         default="mock",
-        description="Email provider: mock | resend",
+        description="Email provider: mock | resend | brevo",
     )
     RESEND_API_KEY: str = Field(
         default="",
@@ -102,31 +102,9 @@ class Settings(BaseSettings):
         default="",
         description="Brevo webhook secret for signature verification",
     )
-
-    # --- Inbound (IMAP) ---
-    IMAP_HOST: str = Field(
+    BREVO_INBOUND_WEBHOOK_SECRET: str = Field(
         default="",
-        description="IMAP server host for inbound email polling",
-    )
-    IMAP_PORT: int = Field(
-        default=993,
-        description="IMAP server port (default 993 for SSL)",
-    )
-    IMAP_USER: str = Field(
-        default="",
-        description="IMAP username for inbound email polling",
-    )
-    IMAP_PASSWORD: str = Field(
-        default="",
-        description="IMAP password for inbound email polling",
-    )
-    IMAP_FOLDER: str = Field(
-        default="INBOX",
-        description="IMAP folder to poll for inbound emails",
-    )
-    INBOUND_POLL_SECONDS: int = Field(
-        default=120,
-        description="Interval in seconds between IMAP polls",
+        description="Brevo inbound email webhook secret for signature verification",
     )
 
     # --- Guardrails (hard caps; dispatcher reads these) ---

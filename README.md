@@ -6,8 +6,8 @@ Autonomous email marketing agent powered by open-weight Hermes LLMs.
 
 - **Campaign Management**: Create and manage email campaigns with multiple steps
 - **Contact Management**: CRM with lifecycle stages and segmentation
-- **Email Provider Integration**: Support for Resend and mock provider
-- **Inbound Email**: IMAP polling for replies and engagement
+- **Email Provider Integration**: Support for Resend, Brevo, and mock provider
+- **Inbound Email**: Brevo inbound webhooks for replies and engagement
 - **Guardrails**: Hard caps on sends, quiet hours, auto-pause on high bounce/complaint rates
 - **Approval Workflow**: Human approval for campaigns and reply drafts
 - **Agent Loop**: LLM-powered campaign planning, copywriting, and optimization

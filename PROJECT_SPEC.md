@@ -315,7 +315,7 @@ advance_sequences (beat, every 10 min): for running sequence campaigns, for each
 9.5 A/B variants
 If a step has multiple variant_labels, split the audience deterministically (hash(contact_id) mod). get_campaign_metrics reports per-variant. (Auto-winner selection is a v2 proposal the optimizer can file, not automatic.)
 10. Inbox pipeline
-Beat task every INBOUND_POLL_SECONDS: inbound_imap.poll() → new replies rows → for each, immediately record an event(type=reply) and mark the contact engaged-adjacent (attributes.last_reply_at). Then run an inbox agent run over list_unhandled_replies (worker model). Code post-processing of submit_reply_handling:
+Brevo inbound webhook endpoint: POST /webhooks/brevo/inbound → verify signature → parse payload → process_brevo_inbound_email() → create reply record → AI classification → draft generation (if needed) → create approval (if response needed). Code post-processing of submit_reply_handling:
 unsubscribe_request → suppress + status change in code, instantly, mark handled, no draft needed.
 out_of_office / auto_reply → mark handled, optionally reschedule next sequence step +3 days.
 interested / question → store draft_response, create reply_draft approval; dashboard shows thread + draft; on operator approval, dispatcher sends the reply (from REPLY_TO mailbox, threading headers In-Reply-To/References set).

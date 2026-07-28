@@ -2,10 +2,6 @@
 
 import re
 from datetime import datetime
-from email import message_from_bytes
-from email.header import decode_header, make_header
-from email.utils import parseaddr
-from html.parser import HTMLParser
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import func, select
@@ -15,129 +11,118 @@ from sqlalchemy.orm import selectinload
 from app.models.contact import Contact, ContactStatus
 from app.models.event import Event, EventType
 from app.models.inbox import InboxMessage, InboxStatus, InboxThread
-from app.providers.inbound_imap import InboundIMAPProvider
+from app.models.reply import Reply, ReplyClass
+from app.models.agent import Approval, ApprovalStatus, ApprovalSubject
+from app.llm.client import LLMClient
+from app.agent.loop import run_agent
+from app.config import settings
+import json
 
-
-class HTMLTextExtractor(HTMLParser):
-    """Simple HTML to text converter."""
-
-    def __init__(self):
-        super().__init__()
-        self.text = []
-        self.current_text = []
-
-    def handle_data(self, data):
-        self.current_text.append(data)
-
-    def handle_endtag(self, tag):
-        if tag in ["p", "br", "div", "li"]:
-            if self.current_text:
-                self.text.append("".join(self.current_text).strip())
-                self.current_text = []
-            self.text.append("\n")
-        elif tag == "li":
-            self.text.append("\n")
-
-    def get_text(self):
-        return "".join(self.text).strip()
-
-
-def extract_text_from_html(html: str) -> str:
-    """Extract plain text from HTML."""
-    parser = HTMLTextExtractor()
-    parser.feed(html)
-    return parser.get_text()
-
-
-def extract_email_address(text: str) -> Optional[str]:
-    """Extract email address from text."""
-    # Simple email regex
-    pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-    match = re.search(pattern, text)
-    if match:
-        return match.group(0)
-    return None
-
-
-def parse_inbound_email(raw_email: bytes) -> Dict[str, Any]:
-    """Parse raw email bytes into structured data.
+async def process_brevo_inbound_email(
+    session: AsyncSession,
+    inbound_data: Dict[str, Any],
+) -> None:
+    """Process an inbound email from Brevo webhook.
 
     Args:
-        raw_email: Raw email bytes
+        session: Database session
+        inbound_data: Parsed Brevo inbound email data
 
     Returns:
-        Dictionary with email data
+        None
     """
-    msg = message_from_bytes(raw_email)
+    from app.models.message import Message
+    from app.services.contacts import find_or_create_contact
+    import uuid
 
-    # Extract headers
-    headers = {}
-    for key, value in msg.items():
-        headers[key] = str(make_header(decode_header(value)))
+    # Find or create contact
+    contact = await find_or_create_contact(
+        session,
+        inbound_data["from_email"],
+        inbound_data.get("from_name"),
+    )
 
-    # Extract sender
-    from_addr = headers.get("From", "")
-    from_name, from_email = parseaddr(from_addr)
+    # Find the original message if this is a reply
+    original_message = None
+    if inbound_data.get("thread_id"):
+        result = await session.execute(
+            select(Message).where(Message.provider_message_id == inbound_data["thread_id"])
+        )
+        original_message = result.scalar_one_or_none()
 
-    # Extract recipients
-    to_addrs = headers.get("To", "")
-    to_list = [parseaddr(addr)[1] for addr in to_addrs.split(",") if addr.strip()]
+    # Create reply record
+    reply = Reply(
+        contact_id=contact.id,
+        message_id=original_message.id if original_message else None,
+        from_email=inbound_data["from_email"],
+        subject=inbound_data.get("subject", ""),
+        body_text=inbound_data.get("text_body", ""),
+        classification=ReplyClass.OTHER,  # Will be classified by AI later
+        confidence=0.0,
+        draft_response="",
+        handled=False,
+        received_at=datetime.fromisoformat(inbound_data["received_at"]) if inbound_data.get("received_at") else datetime.utcnow(),
+    )
+    session.add(reply)
 
-    # Extract subject
-    subject = headers.get("Subject", "")
+    # Create inbox message and thread
+    # Find or create thread
+    result = await session.execute(
+        select(InboxThread)
+        .where(InboxThread.contact_id == contact.id)
+        .where(InboxThread.subject == inbound_data.get("subject", ""))
+    )
+    thread = result.scalar_one_or_none()
 
-    # Extract body
-    body = ""
-    if msg.is_multipart():
-        for part in msg.walk():
-            content_type = part.get_content_type()
-            if content_type == "text/plain":
-                try:
-                    body = part.get_payload(decode=True).decode("utf-8")
-                except Exception:
-                    body = part.get_payload(decode=True).decode("latin-1")
-                break
-            elif content_type == "text/html":
-                try:
-                    html = part.get_payload(decode=True).decode("utf-8")
-                    body = extract_text_from_html(html)
-                except Exception:
-                    pass
-    else:
-        try:
-            body = msg.get_payload(decode=True).decode("utf-8")
-        except Exception:
-            body = msg.get_payload(decode=True).decode("latin-1")
+    if not thread:
+        thread = InboxThread(
+            contact_id=contact.id,
+            subject=inbound_data.get("subject", ""),
+            status=InboxStatus.UNREAD,
+        )
+        session.add(thread)
 
-    # Extract attachments
-    attachments = []
-    if msg.is_multipart():
-        for part in msg.walk():
-            content_disposition = part.get_content_disposition()
-            if content_disposition == "attachment":
-                attachments.append(
-                    {
-                        "filename": part.get_filename(),
-                        "content_type": part.get_content_type(),
-                        "size": len(part.get_payload(decode=True)),
-                    }
-                )
+    # Create inbox message
+    message = InboxMessage(
+        thread_id=thread.id,
+        contact_id=contact.id,
+        message_id=inbound_data.get("message_id", str(uuid.uuid4())),
+        subject=inbound_data.get("subject", ""),
+        body=inbound_data.get("text_body", ""),
+        html=inbound_data.get("html_body", ""),
+        from_email=inbound_data["from_email"],
+        from_name=inbound_data.get("from_name", ""),
+        to_emails=[inbound_data.get("to_email", "")],
+        date=inbound_data.get("received_at", ""),
+        headers=inbound_data.get("headers", {}),
+        attachments=inbound_data.get("attachments", []),
+        status=InboxStatus.UNREAD,
+    )
+    session.add(message)
 
-    return {
-        "message_id": headers.get("Message-ID", ""),
-        "from_email": from_email,
-        "from_name": from_name,
-        "to_emails": to_list,
-        "subject": subject,
-        "body": body,
-        "html": msg.get_payload(decode=True).decode("utf-8")
-        if msg.is_multipart()
-        else "",
-        "date": headers.get("Date", ""),
-        "headers": headers,
-        "attachments": attachments,
-    }
+    # Record reply event
+    event = Event(
+        contact_id=contact.id,
+        type=EventType.REPLY,
+        payload={
+            "reply_id": str(reply.id),
+            "subject": inbound_data.get("subject", ""),
+            "message_id": inbound_data.get("message_id", ""),
+        },
+        occurred_at=datetime.utcnow(),
+    )
+    session.add(event)
 
+    # Update contact engagement
+    contact.attributes = contact.attributes or {}
+    contact.attributes["last_reply_at"] = datetime.utcnow().isoformat()
+    contact.lifecycle_stage = "engaged"  # Mark as engaged when they reply
+
+    await session.commit()
+
+    # Trigger AI classification for the reply
+    await classify_reply_with_ai(session, reply.id)
+    await generate_draft_response_if_needed(session, reply.id)
 
 async def find_or_create_contact(
     session: AsyncSession,
@@ -170,146 +155,6 @@ async def find_or_create_contact(
 
     return contact
 
-
-async def find_or_create_thread(
-    session: AsyncSession,
-    contact: Contact,
-    subject: str,
-) -> InboxThread:
-    """Find or create an inbox thread.
-
-    Args:
-        session: Database session
-        contact: Contact
-        subject: Email subject
-
-    Returns:
-        InboxThread object
-    """
-    result = await session.execute(
-        select(InboxThread)
-        .where(InboxThread.contact_id == contact.id)
-        .where(InboxThread.subject == subject)
-        .order_by(InboxThread.created_at.desc())
-    )
-    thread = result.scalar_one_or_none()
-
-    if not thread:
-        thread = InboxThread(
-            contact_id=contact.id,
-            subject=subject,
-            status=InboxStatus.UNREAD,
-        )
-        session.add(thread)
-        await session.commit()
-
-    return thread
-
-
-async def process_inbound_email(
-    session: AsyncSession,
-    raw_email: bytes,
-) -> InboxMessage:
-    """Process an inbound email.
-
-    Args:
-        session: Database session
-        raw_email: Raw email bytes
-
-    Returns:
-        InboxMessage object
-    """
-    # Parse email
-    email_data = parse_inbound_email(raw_email)
-
-    # Find or create contact
-    contact = await find_or_create_contact(
-        session,
-        email_data["from_email"],
-        email_data["from_name"],
-    )
-
-    # Find or create thread
-    thread = await find_or_create_thread(
-        session,
-        contact,
-        email_data["subject"],
-    )
-
-    # Check for duplicates
-    if email_data["message_id"]:
-        result = await session.execute(
-            select(InboxMessage).where(
-                InboxMessage.message_id == email_data["message_id"]
-            )
-        )
-        if result.scalar_one_or_none():
-            return None  # Duplicate
-
-    # Create inbox message
-    message = InboxMessage(
-        thread_id=thread.id,
-        contact_id=contact.id,
-        message_id=email_data["message_id"],
-        subject=email_data["subject"],
-        body=email_data["body"],
-        html=email_data.get("html", ""),
-        from_email=email_data["from_email"],
-        from_name=email_data["from_name"],
-        to_emails=email_data["to_emails"],
-        date=email_data["date"],
-        headers=email_data["headers"],
-        attachments=email_data.get("attachments", []),
-        status=InboxStatus.UNREAD,
-    )
-    session.add(message)
-    await session.commit()
-
-    # Update thread
-    thread.last_message_at = datetime.utcnow()
-    thread.status = InboxStatus.UNREAD
-    await session.commit()
-
-    # Record event
-    event = Event(
-        contact_id=contact.id,
-        type=EventType.INBOUND_EMAIL,
-        payload={
-            "message_id": message.id,
-            "subject": email_data["subject"],
-        },
-        occurred_at=datetime.utcnow(),
-    )
-    session.add(event)
-    await session.commit()
-
-    return message
-
-
-async def poll_inbox(
-    session: AsyncSession,
-    provider: InboundIMAPProvider,
-) -> List[InboxMessage]:
-    """Poll inbox for new emails.
-
-    Args:
-        session: Database session
-        provider: IMAP provider
-
-    Returns:
-        List of new messages
-    """
-    raw_emails = await provider.poll()
-
-    messages = []
-    for raw_email in raw_emails:
-        message = await process_inbound_email(session, raw_email)
-        if message:
-            messages.append(message)
-
-    return messages
-
-
 async def mark_as_read(
     session: AsyncSession,
     message_id: str,
@@ -335,7 +180,6 @@ async def mark_as_read(
     await session.commit()
     return True
 
-
 async def mark_thread_as_read(
     session: AsyncSession,
     thread_id: str,
@@ -360,7 +204,6 @@ async def mark_thread_as_read(
     await session.commit()
     return True
 
-
 async def get_unread_count(
     session: AsyncSession,
 ) -> int:
@@ -378,7 +221,6 @@ async def get_unread_count(
         )
     )
     return result.scalar_one()
-
 
 async def get_inbox_messages(
     session: AsyncSession,
@@ -411,7 +253,6 @@ async def get_inbox_messages(
     result = await session.execute(query)
     return list(result.scalars().all())
 
-
 async def get_inbox_threads(
     session: AsyncSession,
     contact_id: Optional[str] = None,
@@ -440,3 +281,235 @@ async def get_inbox_threads(
 
     result = await session.execute(query)
     return list(result.scalars().all())
+
+async def classify_reply_with_ai(
+    session: AsyncSession,
+    reply_id: str,
+) -> None:
+    """Classify a reply using AI and update the reply record.
+
+    Args:
+        session: Database session
+        reply_id: Reply ID to classify
+    """
+    # Get the reply
+    result = await session.execute(
+        select(Reply).where(Reply.id == reply_id)
+    )
+    reply = result.scalar_one_or_none()
+
+    if not reply:
+        return
+
+    # Get the contact for context
+    result = await session.execute(
+        select(Contact).where(Contact.id == reply.contact_id)
+    )
+    contact = result.scalar_one_or_none()
+
+    if not contact:
+        return
+
+    # Prepare context for AI classification
+    context = {
+        "reply_text": reply.body_text,
+        "subject": reply.subject,
+        "contact_name": f"{contact.first_name} {contact.last_name}".strip(),
+        "contact_email": contact.email,
+        "contact_company": contact.company or "",
+        "contact_lifecycle_stage": contact.lifecycle_stage,
+    }
+
+    # Use AI to classify the reply
+    try:
+        # Create an agent run for classification
+        from uuid import uuid4
+        run_id = str(uuid4())
+
+        # Define the system prompt for classification
+        system_prompt = """You are an email classification assistant. Your task is to analyze incoming email replies and classify them into one of the following categories:
+
+1. INTERESTED - The contact is expressing interest in our product/service
+2. QUESTION - The contact is asking a question that requires a response
+3. NOT_INTERESTED - The contact is not interested or wants to be removed
+4. UNSUBSCRIBE_REQUEST - The contact explicitly requests to unsubscribe
+5. OUT_OF_OFFICE - This is an automatic out-of-office reply
+6. AUTO_REPLY - This is an automatic email response
+7. OTHER - Doesn't fit any of the above categories
+
+Analyze the email content carefully and choose the most appropriate category. Provide a confidence score (0.0-1.0) and a brief reasoning for your classification.
+
+Respond with JSON in this format:
+{
+  "classification": "CATEGORY",
+  "confidence": 0.95,
+  "reasoning": "Brief explanation of why you chose this category"
+}"""
+
+        # Run the agent to classify the reply
+        user_message = f"Classify this email reply:\n\nSubject: {context['subject']}\nFrom: {context['contact_name']} <{context['contact_email']}>\n\n{context['reply_text']}"
+
+        # Use the worker model for classification
+        result = await run_agent(
+            session,
+            run_id=run_id,
+            kind="inbox",
+            system_prompt=system_prompt,
+            user_message=user_message,
+            model=settings.WORKER_MODEL,
+        )
+
+        # Parse the AI response
+        if result and "content" in result:
+            try:
+                classification_data = json.loads(result["content"])
+
+                # Update the reply with classification
+                reply.classification = classification_data.get("classification", "OTHER")
+                reply.confidence = classification_data.get("confidence", 0.0)
+
+                # Handle unsubscribe requests immediately
+                if reply.classification == "UNSUBSCRIBE_REQUEST":
+                    from app.services.suppression import suppress_contact_from_event
+                    await suppress_contact_from_event(session, contact.email, "unsubscribe")
+
+                await session.commit()
+
+            except json.JSONDecodeError:
+                # If JSON parsing fails, use default classification
+                reply.classification = "OTHER"
+                reply.confidence = 0.5
+                await session.commit()
+
+    except Exception as e:
+        print(f"Error classifying reply with AI: {e}")
+        # Set default classification on error
+        reply.classification = "OTHER"
+        reply.confidence = 0.5
+        await session.commit()
+
+async def generate_draft_response_if_needed(
+    session: AsyncSession,
+    reply_id: str,
+) -> None:
+    """Generate a draft response if the reply requires one.
+
+    Args:
+        session: Database session
+        reply_id: Reply ID to generate response for
+    """
+    # Get the reply
+    result = await session.execute(
+        select(Reply).where(Reply.id == reply_id)
+    )
+    reply = result.scalar_one_or_none()
+
+    if not reply or reply.handled:
+        return
+
+    # Only generate drafts for replies that need responses
+    requires_response = reply.classification in ["INTERESTED", "QUESTION"]
+    if not requires_response:
+        # Mark as handled if no response needed
+        reply.handled = True
+        await session.commit()
+        return
+
+    # Get the contact for context
+    result = await session.execute(
+        select(Contact).where(Contact.id == reply.contact_id)
+    )
+    contact = result.scalar_one_or_none()
+
+    if not contact:
+        return
+
+    # Get the original message if available
+    original_message = None
+    if reply.message_id:
+        from app.models.message import Message
+        result = await session.execute(
+            select(Message).where(Message.id == reply.message_id)
+        )
+        original_message = result.scalar_one_or_none()
+
+    # Prepare context for AI draft generation
+    context = {
+        "reply_text": reply.body_text,
+        "subject": reply.subject,
+        "contact_name": f"{contact.first_name} {contact.last_name}".strip(),
+        "contact_email": contact.email,
+        "contact_company": contact.company or "",
+        "contact_lifecycle_stage": contact.lifecycle_stage,
+        "original_subject": original_message.subject if original_message else "",
+        "classification": reply.classification,
+    }
+
+    try:
+        # Create an agent run for draft generation
+        from uuid import uuid4
+        run_id = str(uuid4())
+
+        # Define the system prompt for draft generation
+        system_prompt = """You are an email response assistant. Your task is to generate professional, concise draft responses to email replies.
+
+Follow these guidelines:
+1. Be professional and polite
+2. Keep responses concise and to the point
+3. Address the sender by name
+4. Reference their original message where appropriate
+5. Provide helpful information or ask clarifying questions
+6. Sign off appropriately
+
+For interested contacts, thank them for their interest and offer next steps.
+For questions, provide a clear answer or indicate you'll get back to them with more information.
+
+Respond with JSON in this format:
+{
+  "draft_response": "The full email draft text",
+  "subject": "Suggested subject line for the response"
+}"""
+
+        # Run the agent to generate the draft
+        user_message = f"Generate a draft response to this email:\n\nSubject: {context['subject']}\nFrom: {context['contact_name']} <{context['contact_email']}>\n\n{context['reply_text']}\n\nClassification: {context['classification']}"
+
+        # Use the worker model for draft generation
+        result = await run_agent(
+            session,
+            run_id=run_id,
+            kind="inbox",
+            system_prompt=system_prompt,
+            user_message=user_message,
+            model=settings.WORKER_MODEL,
+        )
+
+        # Parse the AI response
+        if result and "content" in result:
+            try:
+                draft_data = json.loads(result["content"])
+
+                # Update the reply with draft response
+                reply.draft_response = draft_data.get("draft_response", "")
+                reply.subject = draft_data.get("subject", f"Re: {reply.subject}")
+
+                # Create an approval for the draft response
+                from uuid import uuid4 as uuid_gen
+                approval = Approval(
+                    id=uuid_gen(),
+                    subject_type=ApprovalSubject.REPLY_DRAFT,
+                    subject_id=str(reply.id),
+                    status=ApprovalStatus.PENDING,
+                    summary=f"Draft response to {contact.email} about {reply.subject}",
+                )
+                session.add(approval)
+
+                # Mark as handled (awaiting approval)
+                reply.handled = True
+
+                await session.commit()
+
+            except json.JSONDecodeError:
+                print(f"Error parsing draft response JSON: {result['content']}")
+
+    except Exception as e:
+        print(f"Error generating draft response: {e}")

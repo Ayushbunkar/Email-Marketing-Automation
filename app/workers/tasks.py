@@ -1,7 +1,6 @@
 """Celery tasks for Hermes."""
 
 import asyncio
-import os
 from datetime import datetime, timedelta
 
 from celery import shared_task
@@ -12,7 +11,6 @@ from app.models.event import Event
 from app.models.message import Message, MessageStatus
 from app.services.messages import send_message
 
-
 @shared_task
 def send_scheduled_messages() -> int:
     """Send messages that are scheduled."""
@@ -22,7 +20,6 @@ def send_scheduled_messages() -> int:
         return loop.run_until_complete(_send_scheduled_messages())
     finally:
         loop.close()
-
 
 async def _send_scheduled_messages() -> int:
     """Send messages that are scheduled."""
@@ -43,34 +40,6 @@ async def _send_scheduled_messages() -> int:
 
     return sent
 
-
-@shared_task
-def poll_inbound_emails() -> int:
-    """Poll IMAP for new inbound emails."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(_poll_inbound_emails())
-    finally:
-        loop.close()
-
-
-async def _poll_inbound_emails() -> int:
-    """Poll IMAP for new inbound emails."""
-    from app.providers.inbound_imap import InboundIMAPProvider
-
-    provider = InboundIMAPProvider(
-        host=os.getenv("IMAP_HOST", ""),
-        port=int(os.getenv("IMAP_PORT", "993")),
-        username=os.getenv("IMAP_USER", ""),
-        password=os.getenv("IMAP_PASSWORD", ""),
-        folder=os.getenv("IMAP_FOLDER", "INBOX"),
-    )
-
-    messages = await provider.poll()
-    return len(messages)
-
-
 @shared_task
 def cleanup_old_events() -> int:
     """Clean up old events from the database."""
@@ -80,7 +49,6 @@ def cleanup_old_events() -> int:
         return loop.run_until_complete(_cleanup_old_events())
     finally:
         loop.close()
-
 
 async def _cleanup_old_events() -> int:
     """Clean up old events from the database."""

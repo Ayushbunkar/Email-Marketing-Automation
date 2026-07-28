@@ -41,7 +41,7 @@ class Reply(Base):
     draft_response = Column(Text)
     handled = Column(JSON, nullable=False, server_default="false")
     received_at = Column(DateTime(timezone=True), nullable=False)
-    imap_uid = Column(String(255), unique=True)
+    brevo_message_id = Column(String(255), unique=True)
 
     def __repr__(self) -> str:
         return f"<Reply(id={self.id}, from_email={self.from_email})>"

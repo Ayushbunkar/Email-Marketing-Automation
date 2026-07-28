@@ -99,6 +99,50 @@ This document records key implementation decisions made during the development o
 **Decision**: Fixed linting issues in the core application files (optimizer.py, inbox.py, test_basic.py). Left alembic files and other pre-existing code as-is for now.
 **Rationale**: Focus on fixing issues in the core application files first. Alembic files are auto-generated and should be reviewed separately.
 
+## Phase 2 - IMAP to Brevo Migration (IN PROGRESS)
+
+### 1. IMAP Architecture Removal
+**Date**: 2026-07-28
+**Context**: The original architecture used IMAP polling for inbound email processing, which required periodic polling of mailboxes and had reliability issues.
+**Decision**: Completely remove IMAP architecture and replace with Brevo inbound webhooks.
+**Rationale**: Brevo webhooks provide real-time, event-driven processing that is more reliable, scalable, and reduces infrastructure complexity. This aligns with the production requirement to use Brevo as the single source of truth for all email communication.
+
+### 2. Brevo Provider Enhancement
+**Date**: 2026-07-28
+**Context**: The Brevo provider only supported outbound email sending.
+**Decision**: Enhanced Brevo provider with inbound webhook verification and payload parsing capabilities.
+**Rationale**: Centralizes all Brevo-related functionality in a single provider class, making it easier to maintain and extend.
+
+### 3. Webhook Endpoint Implementation
+**Date**: 2026-07-28
+**Context**: Need to handle Brevo inbound email webhooks securely and reliably.
+**Decision**: Implemented `/webhooks/brevo/inbound` endpoint with signature verification, payload validation, error handling, and idempotent processing.
+**Rationale**: Production-ready webhook handling that prevents unauthorized access and ensures reliable processing.
+
+### 4. Database Schema Changes
+**Date**: 2026-07-28
+**Context**: The Reply model had an `imap_uid` field for deduplication.
+**Decision**: Replaced `imap_uid` with `brevo_message_id` field.
+**Rationale**: Maintains deduplication capability while using Brevo's message IDs instead of IMAP UIDs.
+
+### 5. Configuration Updates
+**Date**: 2026-07-28
+**Context**: Environment variables and configuration needed to support Brevo inbound webhooks.
+**Decision**: Added `BREVO_INBOUND_WEBHOOK_SECRET` configuration and removed all IMAP-related environment variables.
+**Rationale**: Provides secure webhook verification while eliminating unused IMAP configuration.
+
+### 6. Worker Task Updates
+**Date**: 2026-07-28
+**Context**: Celery beat schedule included IMAP polling tasks.
+**Decision**: Removed `poll_inbound_emails` task from beat schedule and worker configuration.
+**Rationale**: Inbound email processing is now event-driven via webhooks, eliminating the need for periodic polling.
+
+### 7. Dependency Management
+**Date**: 2026-07-28
+**Context**: The project had `imap-tools` dependency that is no longer needed.
+**Decision**: Removed `imap-tools` from pyproject.toml dependencies.
+**Rationale**: Reduces project dependencies and eliminates unused code.
+
 ## Pending Decisions
 
 The following decisions are pending based on the PROJECT_SPEC.md:
@@ -114,7 +158,6 @@ The following decisions are pending based on the PROJECT_SPEC.md:
 - [ ] Implement missing agent tools
 
 ## Notes
-
 - All implementation decisions should be reviewed against the PROJECT_SPEC.md
 - Any changes that affect the API or data models should be documented here
 - Decisions that deviate from the spec should be clearly noted with rationale
