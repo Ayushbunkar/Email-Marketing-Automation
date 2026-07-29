@@ -201,9 +201,9 @@ async def send_message(
         to_email=contact.email,
         to_name=contact.first_name,
         from_email=from_email,
-        from_name=settings.FROM_NAME,
-        reply_to=settings.REPLY_TO_EMAIL,
-        subject=msg.subject or "Notification from Hermes",
+        from_name="Pixel Punch",
+        reply_to=from_email,
+        subject=msg.subject or "Notification from Pixel Punch",
         html=html_body,
         text=text_body,
         headers={
