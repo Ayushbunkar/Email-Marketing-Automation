@@ -34,3 +34,8 @@ def register_handlers(application: Application) -> None:
     # 5. Callbacks
     for handler in get_callback_handlers():
         application.add_handler(handler)
+        
+    # 6. Fallback for unknown commands
+    from telegram.ext import MessageHandler, filters
+    from app.telegram.commands.system import unknown_command
+    application.add_handler(MessageHandler(filters.COMMAND, unknown_command))

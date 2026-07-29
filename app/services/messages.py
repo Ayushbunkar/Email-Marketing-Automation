@@ -53,7 +53,7 @@ async def can_send_to_contact(
 async def create_message(
     session: AsyncSession,
     campaign_id: Optional[str],
-    step_id: Optional[str],
+    step_index: Optional[int],
     contact_id: str,
     template_id: Optional[str],
     scheduled_for: datetime,
@@ -62,7 +62,7 @@ async def create_message(
     """Create a message record."""
     message = Message(
         campaign_id=campaign_id,
-        step_id=step_id,
+        step_index=step_index,
         contact_id=contact_id,
         template_id=template_id,
         status=status,
@@ -143,9 +143,10 @@ async def send_message(
         return False
 
     # Get template
-    result = await session.execute(select(Message).where(Message.id == message.id))
+    from app.models.template import Template
+    result = await session.execute(select(Template).where(Template.id == message.template_id))
     msg = result.scalar_one_or_none()
-    if not msg or not msg.template_id:
+    if not msg:
         await update_message_status(
             session, message.id, MessageStatus.FAILED, "Template not found"
         )
@@ -154,17 +155,61 @@ async def send_message(
     # Get provider
     provider = get_provider()
 
+    # Fetch the campaign to get the from_email
+    from app.models.campaign import Campaign
+    camp_result = await session.execute(select(Campaign).where(Campaign.id == message.campaign_id))
+    campaign = camp_result.scalar_one_or_none()
+    
+    # Use campaign's from_email if set, otherwise fallback to settings.
+    # Note: Brevo requires the from_email to be authenticated.
+    from_email = campaign.from_email if campaign and campaign.from_email else settings.FROM_EMAIL
+    
     # Create send request
+    import markdown
+    raw_html = markdown.markdown(msg.body_markdown) if msg.body_markdown else ""
+    
+    unsubscribe_url = f"{settings.BASE_URL}/unsubscribe?email={contact.email}"
+    
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #eaeaea; font-size: 12px; color: #666; text-align: center; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            {raw_html}
+            <div class="footer">
+                <p>This email was sent to <strong>{contact.email}</strong></p>
+                <p>{settings.COMPANY_POSTAL_ADDRESS}</p>
+                <p>If you no longer wish to receive these emails, you can <a href="{unsubscribe_url}">unsubscribe here</a>.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_body = msg.body_markdown or ""
+    text_body += f"\n\n---\nThis email was sent to {contact.email}\n{settings.COMPANY_POSTAL_ADDRESS}\nUnsubscribe: {unsubscribe_url}"
+    
     req = SendRequest(
         to_email=contact.email,
         to_name=contact.first_name,
-        from_email=settings.FROM_EMAIL,
+        from_email=from_email,
         from_name=settings.FROM_NAME,
         reply_to=settings.REPLY_TO_EMAIL,
-        subject="Test Subject",
-        html="<p>Test HTML</p>",
-        text="Test text",
-        headers={},
+        subject=msg.subject or "Notification from Hermes",
+        html=html_body,
+        text=text_body,
+        headers={
+            "List-Unsubscribe": f"<{unsubscribe_url}>",
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+        },
         idempotency_key=str(message.id),
     )
 
@@ -192,4 +237,7 @@ def get_provider():
     """Get the configured email provider."""
     if settings.EMAIL_PROVIDER == "resend":
         return ResendProvider()
+    elif settings.EMAIL_PROVIDER == "brevo":
+        from app.providers.brevo import BrevoProvider
+        return BrevoProvider()
     return MockProvider()

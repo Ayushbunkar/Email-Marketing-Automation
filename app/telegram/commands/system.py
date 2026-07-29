@@ -83,6 +83,10 @@ async def health_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
     await update.effective_message.reply_html(msg)
 
+async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle unknown commands."""
+    await update.effective_message.reply_text("Invalid command. Please use /start to see the menu.")
+
 def get_system_handlers() -> list:
     """Get all system command handlers."""
     return [

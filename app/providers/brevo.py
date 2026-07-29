@@ -30,17 +30,23 @@ class BrevoProvider(EmailProvider):
     async def send(self, req: SendRequest) -> SendResult:
         """Send an email via Brevo API."""
         try:
+            payload = {
+                "sender": {"name": req.from_name, "email": req.from_email},
+                "to": [{"email": req.to_email, "name": req.to_name or ""}],
+                "subject": req.subject,
+                "htmlContent": req.html,
+                "textContent": req.text,
+                "replyTo": {"email": req.reply_to} if req.reply_to else None,
+            }
+            if req.headers:
+                payload["headers"] = req.headers
+            
+            # Clean up None values
+            payload = {k: v for k, v in payload.items() if v is not None}
+            
             response = await self.client.post(
                 "/smtp/email",
-                json={
-                    "sender": {"name": req.from_name, "email": req.from_email},
-                    "to": [{"email": req.to_email, "name": req.to_name or ""}],
-                    "subject": req.subject,
-                    "htmlContent": req.html,
-                    "textContent": req.text,
-                    "headers": req.headers,
-                    "replyTo": {"email": req.reply_to},
-                },
+                json=payload,
             )
             response.raise_for_status()
             data = response.json()
@@ -61,6 +67,26 @@ class BrevoProvider(EmailProvider):
                 accepted=False,
                 error=str(e),
             )
+
+    async def create_marketing_campaign(self, name: str, subject: str, html_content: str, sender_email: str, sender_name: str) -> Dict[str, Any]:
+        """Create a native marketing campaign in Brevo."""
+        try:
+            response = await self.client.post(
+                "/emailCampaigns",
+                json={
+                    "name": name,
+                    "subject": subject,
+                    "sender": {"name": sender_name, "email": sender_email},
+                    "htmlContent": html_content,
+                    "replyTo": sender_email
+                },
+            )
+            response.raise_for_status()
+            return {"success": True, "data": response.json()}
+        except httpx.HTTPStatusError as e:
+            return {"success": False, "error": str(e), "details": e.response.text}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     def verify_webhook(self, headers: Dict[str, str], body: bytes) -> bool:
         """Verify Brevo webhook signature."""
