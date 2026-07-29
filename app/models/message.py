@@ -10,8 +10,10 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Integer,
+    ForeignKeyConstraint,
 )
-from sqlalchemy.dialects.postgresql import ENUM, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from app.db import Base
@@ -43,7 +45,7 @@ class Message(Base):
         server_default=func.gen_random_uuid(),
     )
     campaign_id = Column(UUID(as_uuid=True), ForeignKey("campaigns.id"))
-    step_id = Column(UUID(as_uuid=True), ForeignKey("campaign_steps.id"))
+    step_index = Column(Integer)
     contact_id = Column(
         UUID(as_uuid=True),
         ForeignKey("contacts.id"),
@@ -51,18 +53,35 @@ class Message(Base):
     )
     template_id = Column(UUID(as_uuid=True), ForeignKey("templates.id"))
     status = Column(
-        ENUM(MessageStatus),
+        String(50),
         nullable=False,
-        server_default="queued",
+        server_default="QUEUED",
     )
     provider_message_id = Column(String(255), unique=True)
     scheduled_for = Column(DateTime(timezone=True), nullable=False)
     sent_at = Column(DateTime(timezone=True))
     error = Column(Text)
     provider_event_id = Column(String(255))
+    
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     __table_args__ = (
-        UniqueConstraint("campaign_id", "step_id", "contact_id"),
+        ForeignKeyConstraint(
+            ["campaign_id", "step_index"],
+            ["campaign_steps.campaign_id", "campaign_steps.step_index"],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint("campaign_id", "step_index", "contact_id"),
         Index("ix_messages_status_scheduled_for", "status", "scheduled_for"),
     )
 

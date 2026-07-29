@@ -1,10 +1,11 @@
 """Web dashboard and API routes."""
 
 from datetime import datetime
-from typing import Optional
-
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,20 +14,142 @@ from app.models.agent import Approval, ApprovalStatus, ApprovalSubject
 from app.models.campaign import Campaign, CampaignStatus, CampaignType
 from app.models.contact import ContactStatus, LifecycleStage
 from app.models.message import Message, MessageStatus
+from app.models.event import Event, EventType
 from app.services.campaigns import create_campaign, list_campaigns
 from app.services.contacts import get_contact_by_email, search_contacts, upsert_contact
 from app.services.suppression import suppress_contact_from_event
+from app.services.analytics import get_account_metrics
 
-router = APIRouter(prefix="/api/v1", tags=["api"])
+# Setup templates and static files
+templates = Jinja2Templates(directory="app/web/templates")
+router = APIRouter()
 
+# Mount static files
+router.mount("/static", StaticFiles(directory="app/web/static"), name="static")
 
 @router.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy"}
 
+# --- Web UI Routes ---
+@router.get("/", response_class=HTMLResponse)
+async def redirect_to_dashboard(response: Response):
+    """Redirect root to dashboard."""
+    return RedirectResponse(url="/dashboard")
 
-@router.get("/campaigns", response_model=None)
+@router.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page(request: Request, session: AsyncSession = Depends(get_session)):
+    """Dashboard overview page."""
+    # Get dashboard data
+    campaigns = await list_campaigns(session)
+    contacts = await search_contacts(session)
+    messages = await session.execute(select(Message))
+    approvals = await session.execute(select(Approval))
+
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "page_title": "Dashboard",
+            "active_tab": "dashboard",
+            "show_breadcrumb": False,
+            "campaigns": campaigns,
+            "contacts": contacts,
+            "messages": messages.scalars().all(),
+            "approvals": approvals.scalars().all()
+        }
+    )
+
+@router.get("/campaigns", response_class=HTMLResponse)
+async def campaigns_page(request: Request, session: AsyncSession = Depends(get_session)):
+    """Campaign management page."""
+    # Get campaigns data
+    campaigns = await list_campaigns(session)
+
+    return templates.TemplateResponse(
+        "campaigns.html",
+        {
+            "request": request,
+            "page_title": "Campaigns",
+            "active_tab": "campaigns",
+            "show_breadcrumb": False,
+            "campaigns": campaigns
+        }
+    )
+
+@router.get("/api-test", response_class=HTMLResponse)
+async def api_test_page(request: Request):
+    """API test page."""
+    return templates.TemplateResponse(
+        "base.html",
+        {
+            "request": request,
+            "page_title": "API Test",
+            "active_tab": "api",
+            "show_breadcrumb": False
+        }
+    )
+
+@router.get("/api-test", response_class=JSONResponse)
+async def api_test_endpoint(
+    method: str,
+    endpoint: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session)
+):
+    """Proxy API requests for testing."""
+    # Remove leading slash from endpoint
+    endpoint = endpoint.lstrip('/')
+
+    # Create a new request to the API
+    api_request = Request(
+        method=method,
+        url=f"http://localhost:8000/api/v1/{endpoint}",
+        headers=request.headers,
+        content=await request.body()
+    )
+
+    # Get the original API router
+    from app.web.routes import router as api_router
+
+    # Find the matching route
+    route = None
+    for route_obj in api_router.routes:
+        if route_obj.methods == {method.lower()} and route_obj.path == f"/{endpoint}":
+            route = route_obj
+            break
+
+    if not route:
+        raise HTTPException(status_code=404, detail="Endpoint not found")
+
+    # Call the route handler
+    try:
+        # Get dependencies
+        dependencies = []
+        for dep in route.dependencies:
+            if hasattr(dep, 'dependency'):
+                dependencies.append(dep.dependency)
+
+        # Call the route handler
+        result = await route.endpoint(
+            *dependencies,
+            request=api_request,
+            session=session
+        )
+
+        # Convert to JSON if possible
+        if isinstance(result, JSONResponse):
+            return result
+        elif isinstance(result, dict):
+            return JSONResponse(result)
+        else:
+            return JSONResponse({"status": "success", "result": str(result)})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- API Routes ---
+@router.get("/api/v1/campaigns", response_model=None)
 async def list_campaigns_endpoint(
     status: Optional[CampaignStatus] = None,
     session: AsyncSession = Depends(get_session),
@@ -34,8 +157,7 @@ async def list_campaigns_endpoint(
     """List campaigns."""
     return await list_campaigns(session, status)
 
-
-@router.post("/campaigns", response_model=None)
+@router.post("/api/v1/campaigns", response_model=None)
 async def create_campaign_endpoint(
     name: str,
     goal: str,
@@ -46,8 +168,7 @@ async def create_campaign_endpoint(
     """Create a new campaign."""
     return await create_campaign(session, name, goal, campaign_type, segment_id)
 
-
-@router.get("/contacts", response_model=None)
+@router.get("/api/v1/contacts", response_model=None)
 async def search_contacts_endpoint(
     stage: Optional[LifecycleStage] = None,
     status: Optional[ContactStatus] = None,
@@ -57,8 +178,7 @@ async def search_contacts_endpoint(
     """Search contacts."""
     return await search_contacts(session, stage, status, text)
 
-
-@router.get("/contacts/{email}", response_model=None)
+@router.get("/api/v1/contacts/{email}", response_model=None)
 async def get_contact_endpoint(
     email: str,
     session: AsyncSession = Depends(get_session),
@@ -69,8 +189,7 @@ async def get_contact_endpoint(
         raise HTTPException(status_code=404, detail="Contact not found")
     return contact
 
-
-@router.post("/contacts", response_model=None)
+@router.post("/api/v1/contacts", response_model=None)
 async def upsert_contact_endpoint(
     email: str,
     first_name: Optional[str] = None,
@@ -81,8 +200,7 @@ async def upsert_contact_endpoint(
     """Upsert a contact."""
     return await upsert_contact(session, email, first_name, last_name, company)
 
-
-@router.get("/messages", response_model=None)
+@router.get("/api/v1/messages", response_model=None)
 async def get_messages_endpoint(
     status: Optional[MessageStatus] = None,
     session: AsyncSession = Depends(get_session),
@@ -94,8 +212,7 @@ async def get_messages_endpoint(
         result = await session.execute(select(Message))
     return list(result.scalars().all())
 
-
-@router.post("/messages/send")
+@router.post("/api/v1/messages/send")
 async def send_message_endpoint(
     contact_id: str,
     campaign_id: Optional[str] = None,
@@ -104,7 +221,6 @@ async def send_message_endpoint(
 ) -> JSONResponse:
     """Send a message to a contact."""
     from sqlalchemy import select
-
     from app.services.messages import send_message
 
     result = await session.execute(select(Message).where(Message.id == contact_id))
@@ -118,11 +234,8 @@ async def send_message_endpoint(
     else:
         raise HTTPException(status_code=500, detail="Failed to send message")
 
-
 # --- Webhook Routes ---
-
-
-@router.post("/webhooks/email")
+@router.post("/api/v1/webhooks/email")
 async def email_webhook_endpoint(
     event_type: str,
     message_id: Optional[str] = None,
@@ -136,7 +249,7 @@ async def email_webhook_endpoint(
 
     return JSONResponse({"status": "received"})
 
-@router.post("/webhooks/brevo/inbound")
+@router.post("/api/v1/webhooks/brevo/inbound")
 async def brevo_inbound_webhook_endpoint(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -173,8 +286,7 @@ async def brevo_inbound_webhook_endpoint(
         print(f"Error processing inbound email: {e}")
         return JSONResponse({"status": "received"})
 
-
-@router.get("/unsubscribe/{token}")
+@router.get("/api/v1/unsubscribe/{token}")
 async def unsubscribe_get_endpoint(
     token: str,
     session: AsyncSession = Depends(get_session),
@@ -188,8 +300,7 @@ async def unsubscribe_get_endpoint(
         }
     )
 
-
-@router.post("/unsubscribe/{token}")
+@router.post("/api/v1/unsubscribe/{token}")
 async def unsubscribe_post_endpoint(
     token: str,
     session: AsyncSession = Depends(get_session),
@@ -203,11 +314,8 @@ async def unsubscribe_post_endpoint(
         }
     )
 
-
 # --- Approval Routes ---
-
-
-@router.get("/approvals", response_model=None)
+@router.get("/api/v1/approvals", response_model=None)
 async def list_approvals_endpoint(
     status: Optional[ApprovalStatus] = None,
     session: AsyncSession = Depends(get_session),
@@ -221,8 +329,7 @@ async def list_approvals_endpoint(
     result = await session.execute(query)
     return list(result.scalars().all())
 
-
-@router.post("/approvals/{approval_id}/approve")
+@router.post("/api/v1/approvals/{approval_id}/approve")
 async def approve_endpoint(
     approval_id: str,
     notes: Optional[str] = None,
@@ -248,8 +355,7 @@ async def approve_endpoint(
         }
     )
 
-
-@router.post("/approvals/{approval_id}/reject")
+@router.post("/api/v1/approvals/{approval_id}/reject")
 async def reject_endpoint(
     approval_id: str,
     notes: str,
@@ -275,8 +381,7 @@ async def reject_endpoint(
         }
     )
 
-
-@router.post("/approvals/campaign/{campaign_id}/create")
+@router.post("/api/v1/approvals/campaign/{campaign_id}/create")
 async def create_campaign_approval_endpoint(
     campaign_id: str,
     summary: str,
@@ -326,3 +431,31 @@ async def create_campaign_approval_endpoint(
             "approval_id": str(approval.id),
         }
     )
+
+# --- Activity Endpoint for Dashboard ---
+@router.get("/api/v1/activity", response_model=None)
+async def get_activity_endpoint(
+    limit: int = 20,
+    session: AsyncSession = Depends(get_session),
+):
+    """Get recent activity for dashboard."""
+    # Get recent events
+    result = await session.execute(
+        select(Event)
+        .order_by(Event.created_at.desc())
+        .limit(limit)
+    )
+    events = result.scalars().all()
+
+    # Convert to activity format
+    activity = []
+    for event in events:
+        activity.append({
+            "type": event.type.value,
+            "action": event.action,
+            "timestamp": event.created_at.isoformat(),
+            "status": "success" if event.status == "completed" else "error",
+            "details": event.details
+        })
+
+    return activity

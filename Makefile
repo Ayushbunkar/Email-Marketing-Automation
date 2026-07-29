@@ -1,14 +1,7 @@
 # Hermes Email Marketing Agent - Makefile
+# Full stack development setup with frontend, backend, and workers
 
-.PHONY: up down db seed dev worker beat test lint demo-events
-
-# Start Docker services (PostgreSQL and Redis)
-up:
-	docker-compose up -d
-
-# Stop Docker services
-down:
-	docker-compose down
+.PHONY: db seed dev dev-all dev-frontend dev-backend worker beat test lint demo-events
 
 # Run database migrations
 db:
@@ -18,12 +11,19 @@ db:
 seed:
 	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe scripts/seed_demo.py
 
-# Start development server
-dev:
+# Start all services (frontend, backend, workers)
+dev-all: dev-frontend dev-backend dev-worker
+
+# Start development server (backend only)
+dev-backend:
 	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe -m uvicorn app.main:app --reload
 
+# Start development server (frontend only)
+dev-frontend:
+	cd frontend/hermes-frontend && npm run dev
+
 # Start Celery worker
-worker:
+dev-worker:
 	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe -m celery -A app.workers.celery_app worker -l info
 
 # Start Celery beat (scheduled tasks)
@@ -42,3 +42,6 @@ lint:
 # Generate demo events (for testing)
 demo-events:
 	C:\Users\Rupesh\AppData\Local\Programs\Python\Python312\python.exe scripts/generate_demo_events.py
+
+# Start everything (frontend + backend + workers)
+dev: dev-all

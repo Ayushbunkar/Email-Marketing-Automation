@@ -1,13 +1,15 @@
 """Template service for email template rendering."""
 
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from jinja2 import Template as JinjaTemplate
 from markdown_it import MarkdownIt
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models.template import Template
+from app.models.template import Template, TemplateStatus
 
 
 def render_template(template: Template, contact_data: Dict[str, Any]) -> Dict[str, str]:
@@ -128,6 +130,8 @@ def wrap_email_html(content: str) -> str:
     Returns:
         Complete HTML email with layout
     """
+    # Escape braces for f-string ({{ becomes {, }} becomes })
+    unsubscribe_url = f"{settings.BASE_URL}/unsubscribe/{{contact_id}}"
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -161,9 +165,7 @@ def wrap_email_html(content: str) -> str:
     <div class="footer">
         <p>{settings.COMPANY_POSTAL_ADDRESS}</p>
         <p>
-            <a href="{{{{
-                settings.BASE_URL
-            }}}}/unsubscribe/{{{{ contact_id }}}}">Unsubscribe</a>
+            <a href="{unsubscribe_url}">Unsubscribe</a>
         </p>
     </div>
 </body>
@@ -223,3 +225,141 @@ def get_preview(
     defaults.update(sample_data)
 
     return render_template(template, defaults)
+
+
+async def list_templates(
+    session: AsyncSession,
+    campaign_id: Optional[str] = None,
+    status: Optional[TemplateStatus] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[Template]:
+    """List templates with optional filters.
+    
+    Args:
+        session: Database session
+        campaign_id: Optional campaign ID filter
+        status: Optional status filter
+        limit: Maximum results
+        offset: Offset for pagination
+        
+    Returns:
+        List of templates
+    """
+    query = select(Template)
+
+    if campaign_id:
+        query = query.where(Template.campaign_id == campaign_id)
+
+    query = query.order_by(Template.created_at.desc()).limit(limit).offset(offset)
+
+    result = await session.execute(query)
+    return list(result.scalars().all())
+
+
+async def get_template(session: AsyncSession, template_id: str) -> Optional[Template]:
+    """Get a specific template.
+    
+    Args:
+        session: Database session
+        template_id: Template ID
+        
+    Returns:
+        Template or None
+    """
+    result = await session.execute(select(Template).where(Template.id == template_id))
+    return result.scalar_one_or_none()
+
+
+async def create_template(
+    session: AsyncSession,
+    campaign_id: Optional[str] = None,
+    step_index: Optional[int] = None,
+    name: Optional[str] = None,
+    subject: str = "",
+    preheader: Optional[str] = None,
+    body_markdown: str = "",
+    variant_label: str = "A",
+    variables: Optional[List[str]] = None,
+    status: TemplateStatus = TemplateStatus.DRAFT,
+) -> Template:
+    """Create a new template.
+    
+    Args:
+        session: Database session
+        campaign_id: Campaign ID
+        step_index: Campaign step index
+        name: Optional template name
+        subject: Email subject
+        preheader: Optional email preheader
+        body_markdown: Email body in markdown
+        variant_label: Template variant label
+        variables: Optional template variables
+        status: Template status
+        
+    Returns:
+        Created template
+    """
+    template = Template(
+        campaign_id=campaign_id,
+        step_index=step_index,
+        name=name,
+        subject=subject,
+        preheader=preheader,
+        body_markdown=body_markdown,
+        variant_label=variant_label,
+        variables=variables or [],
+    )
+    session.add(template)
+    await session.commit()
+    return template
+
+
+async def update_template(
+    session: AsyncSession,
+    template_id: str,
+    template_data: Dict[str, Any],
+) -> Optional[Template]:
+    """Update a template.
+    
+    Args:
+        session: Database session
+        template_id: Template ID
+        template_data: Update data
+        
+    Returns:
+        Updated template or None
+    """
+    result = await session.execute(select(Template).where(Template.id == template_id))
+    template = result.scalar_one_or_none()
+    
+    if template:
+        for key, value in template_data.items():
+            if hasattr(template, key):
+                if hasattr(value, "value"):
+                    value = value.value
+                setattr(template, key, value)
+        await session.commit()
+    return template
+
+
+async def delete_template(
+    session: AsyncSession,
+    template_id: str,
+) -> Optional[Template]:
+    """Delete a template.
+    
+    Args:
+        session: Database session
+        template_id: Template ID
+        
+    Returns:
+        Deleted template or None
+    """
+    result = await session.execute(select(Template).where(Template.id == template_id))
+    template = result.scalar_one_or_none()
+    
+    if template:
+        await session.delete(template)
+        await session.commit()
+    return template

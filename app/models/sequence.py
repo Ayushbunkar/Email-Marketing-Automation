@@ -41,7 +41,7 @@ class Sequence(Base):
     status = Column(
         ENUM(SequenceStatus),
         nullable=False,
-        server_default="draft",
+        server_default="DRAFT",
     )
     created_by = Column(String(50), nullable=False)
 

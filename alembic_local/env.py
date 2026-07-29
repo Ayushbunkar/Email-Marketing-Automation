@@ -16,7 +16,6 @@ if os.path.exists(_alembic_path):
     sys.path.insert(0, _alembic_path)
 
 from alembic import context
-
 from app.config import settings
 from app.db import Base
 

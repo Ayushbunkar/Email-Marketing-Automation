@@ -26,8 +26,8 @@ async def create_campaign(
     campaign = Campaign(
         name=name,
         goal=goal,
-        type=campaign_type,
-        status=CampaignStatus.DRAFT,
+        type=campaign_type.value if hasattr(campaign_type, "value") else campaign_type,
+        status=CampaignStatus.DRAFT.value,
         segment_id=segment_id,
         settings=settings or {},
         created_by=created_by,
@@ -85,8 +85,8 @@ async def update_campaign_status(
     result = await session.execute(select(Campaign).where(Campaign.id == campaign_id))
     campaign = result.scalar_one_or_none()
     if campaign:
-        campaign.status = status
-        if status in (CampaignStatus.APPROVED, CampaignStatus.RUNNING):
+        campaign.status = status.value if hasattr(status, "value") else status
+        if status in (CampaignStatus.APPROVED, CampaignStatus.RUNNING, CampaignStatus.APPROVED.value, CampaignStatus.RUNNING.value):
             campaign.approved_by = approved_by
             campaign.approved_at = datetime.utcnow()
         await session.commit()
@@ -152,3 +152,34 @@ async def get_campaign_message_count(
 
     result = await session.execute(query)
     return result.scalar_one()
+
+
+async def update_campaign(
+    session: AsyncSession,
+    campaign_id: str,
+    campaign_data: Dict[str, Any],
+) -> Optional[Campaign]:
+    """Update a campaign."""
+    result = await session.execute(select(Campaign).where(Campaign.id == campaign_id))
+    campaign = result.scalar_one_or_none()
+    if campaign:
+        for key, value in campaign_data.items():
+            if hasattr(campaign, key):
+                if hasattr(value, "value"):  # Handle enums
+                    value = value.value
+                setattr(campaign, key, value)
+        await session.commit()
+    return campaign
+
+
+async def delete_campaign(
+    session: AsyncSession,
+    campaign_id: str,
+) -> Optional[Campaign]:
+    """Delete a campaign."""
+    result = await session.execute(select(Campaign).where(Campaign.id == campaign_id))
+    campaign = result.scalar_one_or_none()
+    if campaign:
+        await session.delete(campaign)
+        await session.commit()
+    return campaign

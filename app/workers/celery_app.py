@@ -1,20 +1,21 @@
-"""Celery app configuration for Hermes."""
-
-import os
+"""Celery application for Hermes."""
 
 from celery import Celery
+import os
 
-# Set default Django settings module
-os.environ.setdefault("CELERY_CONFIG_MODULE", "app.workers.config")
+# Get Redis URL from environment
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 # Create Celery app
-celery_app = Celery("hermes")
+celery_app = Celery(
+    "hermes",
+    broker=redis_url,
+    backend=redis_url,
+    include=["app.workers.tasks"]
+)
 
-# Load configuration from config module
+# Load configuration
 celery_app.config_from_object("app.workers.config")
-
-# Auto-discover tasks
-celery_app.autodiscover_tasks(["app.workers"])
 
 if __name__ == "__main__":
     celery_app.start()

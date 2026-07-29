@@ -1,0 +1,201 @@
+framer motion dont make with same ai colour fix it <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes Email Marketing Agent</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            min-height: 100vh;
+            background-color: #343a40;
+            color: #fff;
+        }
+        .sidebar .nav-link {
+            color: #adb5bd;
+            margin-bottom: 5px;
+        }
+        .sidebar .nav-link.active {
+            color: #fff;
+            background-color: #495057;
+        }
+        .sidebar .nav-link i {
+            margin-right: 10px;
+        }
+        .main-content {
+            padding: 20px;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .api-request {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .api-response {
+            background-color: #e9ecef;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .code-block {
+            font-family: 'Courier New', monospace;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .tab-content {
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-2 sidebar p-0">
+                <div class="p-3">
+                    <h4 class="text-center mb-4">Hermes</h4>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link {% if active_tab == 'dashboard' %}active{% endif %}" href="/dashboard">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if active_tab == 'campaigns' %}active{% endif %}" href="/campaigns">
+                                <i class="bi bi-envelope"></i> Campaigns
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if active_tab == 'contacts' %}active{% endif %}" href="/contacts">
+                                <i class="bi bi-people"></i> Contacts
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if active_tab == 'analytics' %}active{% endif %}" href="/analytics">
+                                <i class="bi bi-bar-chart"></i> Analytics
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if active_tab == 'inbox' %}active{% endif %}" href="/inbox">
+                                <i class="bi bi-envelope-fill"></i> Inbox
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if active_tab == 'api' %}active{% endif %}" href="/api-test">
+                                <i class="bi bi-terminal"></i> API Test
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-10 main-content">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>{{ page_title }}</h2>
+                    {% if show_breadcrumb %}
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            {% for item in breadcrumb %}
+                            <li class="breadcrumb-item">{{ item }}</li>
+                            {% endfor %}
+                        </ol>
+                    </nav>
+                    {% endif %}
+                </div>
+
+                {% block content %}{% endblock %}
+
+                <div class="api-request mt-4">
+                    <h5>API Request Testing</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="apiMethod" class="form-label">Method</label>
+                                <select class="form-select" id="apiMethod">
+                                    <option value="GET">GET</option>
+                                    <option value="POST">POST</option>
+                                    <option value="PUT">PUT</option>
+                                    <option value="DELETE">DELETE</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="apiEndpoint" class="form-label">Endpoint</label>
+                                <input type="text" class="form-control" id="apiEndpoint" placeholder="/api/contacts">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="apiBody" class="form-label">Request Body (JSON)</label>
+                        <textarea class="form-control" id="apiBody" rows="3" placeholder='{"email": "test@example.com", "name": "John Doe"}'></textarea>
+                    </div>
+                    <button class="btn btn-primary" id="testApiBtn">Test API Request</button>
+                    <button class="btn btn-secondary" id="copyResponseBtn" style="display: none;">Copy Response</button>
+                </div>
+
+                <div id="apiResponse" class="api-response" style="display: none;">
+                    <h5>API Response</h5>
+                    <div class="code-block" id="responseContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('testApiBtn').addEventListener('click', function() {
+            const method = document.getElementById('apiMethod').value;
+            const endpoint = document.getElementById('apiEndpoint').value;
+            const body = document.getElementById('apiBody').value;
+
+            const url = `/api-test?method=${method}&endpoint=${encodeURIComponent(endpoint)}`;
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            };
+
+            if (body) {
+                options.body = body;
+            }
+
+            fetch(url, options)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('responseContent').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('apiResponse').style.display = 'block';
+                    document.getElementById('copyResponseBtn').style.display = 'inline-block';
+                })
+                .catch(error => {
+                    document.getElementById('responseContent').textContent = `Error: ${error.message}`;
+                    document.getElementById('apiResponse').style.display = 'block';
+                });
+        });
+
+        document.getElementById('copyResponseBtn').addEventListener('click', function() {
+            const responseContent = document.getElementById('responseContent');
+            navigator.clipboard.writeText(responseContent.textContent)
+                .then(() => {
+                    alert('Response copied to clipboard!');
+                });
+        });
+    </script>
+</body>
+</html>

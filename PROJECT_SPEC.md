@@ -44,7 +44,7 @@ Templating (email)	Jinja2 for merge fields; markdown-it-py to render agent-writt
 Auth (dashboard)	Single operator: HTTP session with password from env (OPERATOR_PASSWORD). CSRF on mutating forms.
 Tests	pytest + pytest-asyncio + httpx test client; factory fixtures.
 Lint/format	ruff (lint + format).
-Dev orchestration	Docker Compose (postgres, redis) + Makefile. App runs on host for fast reload.
+Dev orchestration	Makefile. Direct connection to cloud services (Supabase, Upstash). App runs locally with Python.
 4. Repository layout
 Create exactly this structure (files may be added within these packages, not outside them):
 hermes/

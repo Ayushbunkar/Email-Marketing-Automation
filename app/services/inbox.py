@@ -1,6 +1,6 @@
 """Inbox pipeline for processing inbound emails."""
 
-import re
+import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -8,15 +8,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.agent.loop import run_agent
+from app.config import settings
+from app.models.agent import Approval, ApprovalStatus, ApprovalSubject
 from app.models.contact import Contact, ContactStatus
 from app.models.event import Event, EventType
 from app.models.inbox import InboxMessage, InboxStatus, InboxThread
 from app.models.reply import Reply, ReplyClass
-from app.models.agent import Approval, ApprovalStatus, ApprovalSubject
-from app.llm.client import LLMClient
-from app.agent.loop import run_agent
-from app.config import settings
-import json
+
 
 async def process_brevo_inbound_email(
     session: AsyncSession,
@@ -31,9 +30,10 @@ async def process_brevo_inbound_email(
     Returns:
         None
     """
+    import uuid
+
     from app.models.message import Message
     from app.services.contacts import find_or_create_contact
-    import uuid
 
     # Find or create contact
     contact = await find_or_create_contact(
@@ -387,6 +387,109 @@ Respond with JSON in this format:
         reply.classification = "OTHER"
         reply.confidence = 0.5
         await session.commit()
+
+async def list_messages(
+    session: AsyncSession,
+    contact_id: Optional[str] = None,
+    status: Optional[InboxStatus] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[InboxMessage]:
+    """List inbox messages with optional filters.
+    
+    Args:
+        session: Database session
+        contact_id: Optional contact ID filter
+        status: Optional status filter
+        limit: Maximum results
+        offset: Offset for pagination
+        
+    Returns:
+        List of inbox messages
+    """
+    query = select(InboxMessage).options(
+        selectinload(InboxMessage.thread),
+    )
+
+    if contact_id:
+        query = query.where(InboxMessage.contact_id == contact_id)
+    if status:
+        query = query.where(InboxMessage.status == status)
+
+    query = query.order_by(InboxMessage.date.desc()).limit(limit).offset(offset)
+
+    result = await session.execute(query)
+    return list(result.scalars().all())
+
+
+async def get_message(
+    session: AsyncSession,
+    message_id: str,
+) -> Optional[InboxMessage]:
+    """Get a specific inbox message.
+    
+    Args:
+        session: Database session
+        message_id: Message ID
+        
+    Returns:
+        Inbox message or None
+    """
+    result = await session.execute(
+        select(InboxMessage).where(InboxMessage.id == message_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_message_status(
+    session: AsyncSession,
+    message_id: str,
+    status: InboxStatus,
+) -> Optional[InboxMessage]:
+    """Update inbox message status.
+    
+    Args:
+        session: Database session
+        message_id: Message ID
+        status: New status
+        
+    Returns:
+        Updated inbox message or None
+    """
+    result = await session.execute(
+        select(InboxMessage).where(InboxMessage.id == message_id)
+    )
+    message = result.scalar_one_or_none()
+    
+    if message:
+        message.status = status
+        await session.commit()
+    return message
+
+
+async def delete_message(
+    session: AsyncSession,
+    message_id: str,
+) -> Optional[InboxMessage]:
+    """Delete an inbox message.
+    
+    Args:
+        session: Database session
+        message_id: Message ID
+        
+    Returns:
+        Deleted inbox message or None
+    """
+    result = await session.execute(
+        select(InboxMessage).where(InboxMessage.id == message_id)
+    )
+    message = result.scalar_one_or_none()
+    
+    if message:
+        await session.delete(message)
+        await session.commit()
+    return message
+
 
 async def generate_draft_response_if_needed(
     session: AsyncSession,

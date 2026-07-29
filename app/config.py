@@ -141,6 +141,42 @@ class Settings(BaseSettings):
         description="Require human approval before sending emails (never default to false)",
     )
 
+    # --- Telegram Operator ---
+    TELEGRAM_ENABLED: bool = Field(
+        default=False,
+        description="Enable Telegram bot operator",
+    )
+    TELEGRAM_BOT_TOKEN: str = Field(
+        default="",
+        description="Telegram Bot API Token from BotFather",
+    )
+    TELEGRAM_ADMIN_IDS: str = Field(
+        default="",
+        description="Comma-separated list of allowed Telegram user IDs",
+    )
+    TELEGRAM_WEBHOOK_URL: str = Field(
+        default="",
+        description="Public URL for Telegram webhook (if empty, uses polling)",
+    )
+    TELEGRAM_WEBHOOK_SECRET: str = Field(
+        default="",
+        description="Secret token to verify webhook requests from Telegram",
+    )
+    TELEGRAM_PARSE_MODE: str = Field(
+        default="HTML",
+        description="Parse mode for Telegram messages",
+    )
+
+    # --- JWT ---
+    ALGORITHM: str = Field(
+        default="HS256",
+        description="JWT signing algorithm",
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=30,
+        description="Access token expiration time in minutes",
+    )
+
 
 # Single settings object - all modules import from here, never os.environ
 settings = Settings()

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h4>Dashboard Overview</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-4">
+                        <div class="card text-white bg-primary">
+                            <div class="card-body">
+                                <h5 class="card-title">Campaigns</h5>
+                                <p class="card-text" id="campaignCount">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-4">
+                        <div class="card text-white bg-success">
+                            <div class="card-body">
+                                <h5 class="card-title">Contacts</h5>
+                                <p class="card-text" id="contactCount">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-4">
+                        <div class="card text-white bg-info">
+                            <div class="card-body">
+                                <h5 class="card-title">Messages Sent</h5>
+                                <p class="card-text" id="messageCount">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-4">
+                        <div class="card text-white bg-warning">
+                            <div class="card-body">
+                                <h5 class="card-title">Pending Approvals</h5>
+                                <p class="card-text" id="approvalCount">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <h4>Recent Activity</h4>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Action</th>
+                                        <th>Timestamp</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentActivity">
+                                    <tr>
+                                        <td colspan="4" class="text-center">Loading recent activity...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load dashboard data
+    fetchDashboardData();
+
+    function fetchDashboardData() {
+        // Get campaign count
+        fetch('/api/campaigns')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('campaignCount').textContent = data.length;
+            });
+
+        // Get contact count
+        fetch('/api/contacts')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('contactCount').textContent = data.length;
+            });
+
+        // Get message count
+        fetch('/api/messages')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('messageCount').textContent = data.length;
+            });
+
+        // Get approval count
+        fetch('/api/approvals')
+            .then(response => response.json())
+            .then(data => {
+                const pending = data.filter(a => a.status === 'pending').length;
+                document.getElementById('approvalCount').textContent = pending;
+            });
+
+        // Get recent activity
+        fetch('/api/activity')
+            .then(response => response.json())
+            .then(data => {
+                const tableBody = document.getElementById('recentActivity');
+                tableBody.innerHTML = '';
+
+                if (data.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="4" class="text-center">No recent activity</td></tr>';
+                    return;
+                }
+
+                data.slice(0, 10).forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${item.type}</td>
+                        <td>${item.action}</td>
+                        <td>${new Date(item.timestamp).toLocaleString()}</td>
+                        <td><span class="badge bg-${item.status === 'success' ? 'success' : 'danger'}">${item.status}</span></td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            });
+    }
+});
+</script>
+{% endblock %}

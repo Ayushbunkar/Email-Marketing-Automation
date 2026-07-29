@@ -3,7 +3,7 @@
 from enum import Enum
 
 from sqlalchemy import Column, DateTime, String, func
-from sqlalchemy.dialects.postgresql import CITEXT, ENUM, UUID
+from sqlalchemy.dialects.postgresql import CITEXT, UUID
 from sqlalchemy.sql import func
 
 from app.db import Base
@@ -31,7 +31,7 @@ class Suppression(Base):
     )
     email = Column(CITEXT, unique=True, nullable=False)
     reason = Column(
-        ENUM(SuppressionReason),
+        String(50),
         nullable=False,
     )
     source = Column(String(255), nullable=False)

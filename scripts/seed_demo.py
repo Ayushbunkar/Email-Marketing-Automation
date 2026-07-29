@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.db import Base, engine
+from app.db import engine
 from app.models.contact import Contact, ContactStatus, LifecycleStage
 from app.models.segment import Segment
 

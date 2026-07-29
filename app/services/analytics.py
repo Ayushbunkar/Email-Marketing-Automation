@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.campaign import Campaign
 from app.models.contact import Contact
 from app.models.event import Event, EventType
 from app.models.message import Message, MessageStatus
@@ -265,16 +266,17 @@ async def get_account_metrics(
     complaint_rate = (total_complaints / total_sent * 100) if total_sent > 0 else 0
 
     return {
-        "total_sent": total_sent,
-        "total_delivered": total_delivered,
-        "total_opened": total_opened,
-        "total_clicked": total_clicked,
-        "total_bounced": total_bounced,
-        "total_unsubscribed": total_unsubscribed,
-        "total_complaints": total_complaints,
+        "emails_sent": total_sent,
+        "emails_opened": total_opened,
+        "emails_clicked": total_clicked,
+        "reply_count": 0,
+        "bounce_count": total_bounced,
+        "unsubscribe_count": total_unsubscribed,
+        "complaint_count": total_complaints,
         "delivery_rate": round(delivery_rate, 2),
         "open_rate": round(open_rate, 2),
         "click_rate": round(click_rate, 2),
+        "reply_rate": 0.0,
         "bounce_rate": round(bounce_rate, 2),
         "unsubscribe_rate": round(unsubscribe_rate, 2),
         "complaint_rate": round(complaint_rate, 2),
@@ -434,6 +436,96 @@ async def get_variant_metrics(
         )
 
     return variant_metrics
+
+
+async def get_analytics_summary(
+    session: AsyncSession,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    """Get analytics summary for the account.
+    
+    Args:
+        session: Database session
+        start_date: Optional start date filter
+        end_date: Optional end date filter
+        
+    Returns:
+        Dictionary with analytics summary
+    """
+    # Get total contacts
+    result = await session.execute(select(func.count(Contact.id)))
+    total_contacts = result.scalar_one()
+    
+    # Get total campaigns
+    result = await session.execute(select(func.count(Campaign.id)))
+    total_campaigns = result.scalar_one()
+    
+    # Get account metrics
+    metrics = await get_account_metrics(session, start_date, end_date)
+    
+    return {
+        "total_contacts": total_contacts,
+        "total_campaigns": total_campaigns,
+        **metrics,
+    }
+
+
+async def get_campaign_performance(
+    session: AsyncSession,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    limit: int = 10,
+) -> List[Dict[str, Any]]:
+    """Get campaign performance metrics.
+    
+    Args:
+        session: Database session
+        start_date: Optional start date filter
+        end_date: Optional end date filter
+        limit: Maximum number of campaigns to return
+        
+    Returns:
+        List of campaign performance metrics
+    """
+    # Get campaigns
+    query = select(Campaign)
+    if start_date:
+        query = query.where(Campaign.created_at >= start_date)
+    if end_date:
+        query = query.where(Campaign.created_at <= end_date)
+    
+    query = query.order_by(Campaign.created_at.desc()).limit(limit)
+    result = await session.execute(query)
+    campaigns = result.scalars().all()
+    
+    performance = []
+    for campaign in campaigns:
+        metrics = await get_campaign_metrics(session, campaign.id, start_date, end_date)
+        performance.append({
+            "campaign_id": campaign.id,
+            "name": campaign.name,
+            "subject": campaign.settings.get("subject", "") if campaign.settings else "",
+            **metrics,
+        })
+    
+    return performance
+
+
+async def get_daily_sending(
+    session: AsyncSession,
+    days: int = 30,
+) -> List[Dict[str, Any]]:
+    """Get daily sending metrics.
+    
+    Args:
+        session: Database session
+        days: Number of days to include
+        
+    Returns:
+        List of daily sending metrics
+    """
+    return await get_daily_rollups(session, days)
 
 
 async def get_contact_metrics(

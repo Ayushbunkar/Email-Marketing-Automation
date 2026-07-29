@@ -51,8 +51,8 @@ def test_models_import():
 def test_providers_import():
     """Test that providers can be imported."""
     from app.providers.base import EmailProvider, SendRequest, SendResult
-    from app.providers.mock import MockProvider
     from app.providers.brevo import BrevoProvider
+    from app.providers.mock import MockProvider
 
     assert EmailProvider is not None
     assert SendRequest is not None

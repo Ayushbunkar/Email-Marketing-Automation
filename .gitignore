@@ -1,57 +1,50 @@
-# Python bytecode and caches
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+dist/
+build/
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Virtual environments
-.venv/
-venv/
+*.so
+.Python
 env/
-ENV/
-.conda/
-.python-version
-
-# Testing and coverage
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-tox/
-.nox/
-.mypy_cache/
-.ruff_cache/
-.pyre/
-
-# Packaging/build outputs
 build/
+develop-eggs/
 dist/
-*.egg-info/
+downloads/
+eggs/
 .eggs/
-
-# Environment and secrets
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
 .env
-.env.*
-!.env.example
-*.local
-secrets*.json
+venv/
+.venv/
+ENV/
 
-# Databases
-*.sqlite
-*.sqlite3
-*.db
-
-# Logs and runtime files
-*.log
-*.pid
-celerybeat-schedule
-
-# Editor/IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
+# OS/IDE
 .DS_Store
+.idea/
+.vscode/
 Thumbs.db
-.aider*
+*.swp
+
+# Testing/Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Logs
+logs/
+*.log

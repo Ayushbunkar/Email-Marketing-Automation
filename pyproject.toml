@@ -7,7 +7,7 @@ name = "hermes"
 version = "1.0.0"
 description = "Autonomous email marketing agent powered by open-weight Hermes LLMs"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
@@ -23,11 +23,17 @@ dependencies = [
     "jinja2>=3.1.0",
     "itsdangerous>=2.1.0",
     "python-multipart>=0.0.6",
+    "email-validator>=2.0.0",
     "ruff>=0.1.0",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "httpx>=0.25.0",
     "factory-boy>=3.2.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.0",
+    "bcrypt>=4.0.0",
+    "python-dotenv>=1.0.0",
+    "python-telegram-bot[job-queue]>=21.0.0",
 ]
 
 [project.scripts]
@@ -39,7 +45,7 @@ include = ["app*"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

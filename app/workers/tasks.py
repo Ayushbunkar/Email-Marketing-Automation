@@ -11,6 +11,7 @@ from app.models.event import Event
 from app.models.message import Message, MessageStatus
 from app.services.messages import send_message
 
+
 @shared_task
 def send_scheduled_messages() -> int:
     """Send messages that are scheduled."""

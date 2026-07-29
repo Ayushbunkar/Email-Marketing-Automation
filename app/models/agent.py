@@ -11,7 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ENUM, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from app.db import Base
@@ -38,7 +38,7 @@ class AgentRun(Base):
         server_default=func.gen_random_uuid(),
     )
     kind = Column(
-        ENUM(AgentRunKind),
+        String(50),
         nullable=False,
     )
     status = Column(String(50), nullable=False)
@@ -83,12 +83,12 @@ class Approval(Base):
         server_default=func.gen_random_uuid(),
     )
     subject_type = Column(
-        ENUM(ApprovalSubject),
+        String(50),
         nullable=False,
     )
     subject_id = Column(UUID(as_uuid=True), nullable=False)
     status = Column(
-        ENUM(ApprovalStatus),
+        String(50),
         nullable=False,
         server_default="pending",
     )
@@ -123,7 +123,7 @@ class Proposal(Base):
     rationale = Column(Text, nullable=False)
     changes = Column(JSON, nullable=False)
     status = Column(
-        ENUM(ApprovalStatus),
+        String(50),
         nullable=False,
         server_default="pending",
     )

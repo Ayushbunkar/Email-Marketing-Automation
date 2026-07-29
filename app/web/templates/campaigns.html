@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4>Campaign Management</h4>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createCampaignModal">
+                    <i class="bi bi-plus-circle"></i> Create Campaign
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Goal</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for campaign in campaigns %}
+                            <tr>
+                                <td>{{ campaign.name }}</td>
+                                <td>{{ campaign.type }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if campaign.status == 'active' else 'secondary' }}">
+                                        {{ campaign.status }}
+                                    </span>
+                                </td>
+                                <td>{{ campaign.goal }}</td>
+                                <td>{{ campaign.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#viewCampaignModal"
+                                                data-campaign-id="{{ campaign.id }}">
+                                            <i class="bi bi-eye"></i> View
+                                        </button>
+                                        <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editCampaignModal"
+                                                data-campaign-id="{{ campaign.id }}">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteCampaignModal"
+                                                data-campaign-id="{{ campaign.id }}">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% if not campaigns %}
+                            <tr>
+                                <td colspan="6" class="text-center">No campaigns found</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Campaign Modal -->
+<div class="modal fade" id="createCampaignModal" tabindex="-1" aria-labelledby="createCampaignModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createCampaignModalLabel">Create New Campaign</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createCampaignForm">
+                    <div class="mb-3">
+                        <label for="campaignName" class="form-label">Campaign Name</label>
+                        <input type="text" class="form-control" id="campaignName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="campaignGoal" class="form-label">Goal</label>
+                        <textarea class="form-control" id="campaignGoal" rows="2" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="campaignType" class="form-label">Campaign Type</label>
+                        <select class="form-control" id="campaignType" required>
+                            <option value="email">Email</option>
+                            <option value="sequence">Sequence</option>
+                            <option value="transactional">Transactional</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="campaignSegment" class="form-label">Target Segment (Optional)</label>
+                        <input type="text" class="form-control" id="campaignSegment" placeholder="Segment ID or name">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="submitCreateCampaign">Create Campaign</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Campaign Modal -->
+<div class="modal fade" id="viewCampaignModal" tabindex="-1" aria-labelledby="viewCampaignModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewCampaignModalLabel">Campaign Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="campaignDetailsContent">
+                    <!-- Campaign details will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Campaign Modal -->
+<div class="modal fade" id="editCampaignModal" tabindex="-1" aria-labelledby="editCampaignModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editCampaignModalLabel">Edit Campaign</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editCampaignForm">
+                    <div class="mb-3">
+                        <label for="editCampaignName" class="form-label">Campaign Name</label>
+                        <input type="text" class="form-control" id="editCampaignName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCampaignGoal" class="form-label">Goal</label>
+                        <textarea class="form-control" id="editCampaignGoal" rows="2" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCampaignType" class="form-label">Campaign Type</label>
+                        <select class="form-control" id="editCampaignType" required>
+                            <option value="email">Email</option>
+                            <option value="sequence">Sequence</option>
+                            <option value="transactional">Transactional</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCampaignSegment" class="form-label">Target Segment (Optional)</label>
+                        <input type="text" class="form-control" id="editCampaignSegment" placeholder="Segment ID or name">
+                    </div>
+                    <input type="hidden" id="editCampaignId">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="submitEditCampaign">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Campaign Modal -->
+<div class="modal fade" id="deleteCampaignModal" tabindex="-1" aria-labelledby="deleteCampaignModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteCampaignModalLabel">Delete Campaign</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this campaign? This action cannot be undone.</p>
+                <input type="hidden" id="deleteCampaignId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteCampaign">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load campaigns data
+    fetchCampaigns();
+
+    // Create campaign
+    document.getElementById('submitCreateCampaign').addEventListener('click', function() {
+        const name = document.getElementById('campaignName').value;
+        const goal = document.getElementById('campaignGoal').value;
+        const type = document.getElementById('campaignType').value;
+        const segment = document.getElementById('campaignSegment').value;
+
+        fetch('/api/v1/campaigns', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: name,
+                goal: goal,
+                campaign_type: type,
+                segment_id: segment
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert('Campaign created successfully!');
+            document.getElementById('createCampaignModal').classList.remove('show');
+            document.getElementById('createCampaignModal').dispatchEvent(new Event('hidden.bs.modal'));
+            fetchCampaigns();
+        })
+        .catch(error => {
+            alert('Error creating campaign: ' + error.message);
+        });
+    });
+
+    // View campaign details
+    document.querySelectorAll('[data-bs-target="#viewCampaignModal"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const campaignId = this.getAttribute('data-campaign-id');
+            fetch(`/api/v1/campaigns/${campaignId}`)
+                .then(response => response.json())
+                .then(campaign => {
+                    document.getElementById('campaignDetailsContent').innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Name:</strong> ${campaign.name}</p>
+                                <p><strong>Type:</strong> ${campaign.type}</p>
+                                <p><strong>Status:</strong> <span class="badge bg-${campaign.status === 'active' ? 'success' : 'secondary'}">${campaign.status}</span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Goal:</strong> ${campaign.goal}</p>
+                                <p><strong>Created At:</strong> ${new Date(campaign.created_at).toLocaleString()}</p>
+                                <p><strong>Updated At:</strong> ${new Date(campaign.updated_at).toLocaleString()}</p>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <p><strong>Segment:</strong> ${campaign.segment_id || 'None'}</p>
+                        </div>
+                    `;
+                });
+        });
+    });
+
+    // Edit campaign
+    document.querySelectorAll('[data-bs-target="#editCampaignModal"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const campaignId = this.getAttribute('data-campaign-id');
+            fetch(`/api/v1/campaigns/${campaignId}`)
+                .then(response => response.json())
+                .then(campaign => {
+                    document.getElementById('editCampaignId').value = campaign.id;
+                    document.getElementById('editCampaignName').value = campaign.name;
+                    document.getElementById('editCampaignGoal').value = campaign.goal;
+                    document.getElementById('editCampaignType').value = campaign.type;
+                    document.getElementById('editCampaignSegment').value = campaign.segment_id || '';
+                });
+        });
+    });
+
+    document.getElementById('submitEditCampaign').addEventListener('click', function() {
+        const campaignId = document.getElementById('editCampaignId').value;
+        const name = document.getElementById('editCampaignName').value;
+        const goal = document.getElementById('editCampaignGoal').value;
+        const type = document.getElementById('editCampaignType').value;
+        const segment = document.getElementById('editCampaignSegment').value;
+
+        // In a real implementation, we would update the campaign
+        alert('Campaign updated successfully!');
+        document.getElementById('editCampaignModal').classList.remove('show');
+        document.getElementById('editCampaignModal').dispatchEvent(new Event('hidden.bs.modal'));
+        fetchCampaigns();
+    });
+
+    // Delete campaign
+    document.querySelectorAll('[data-bs-target="#deleteCampaignModal"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const campaignId = this.getAttribute('data-campaign-id');
+            document.getElementById('deleteCampaignId').value = campaignId;
+        });
+    });
+
+    document.getElementById('confirmDeleteCampaign').addEventListener('click', function() {
+        const campaignId = document.getElementById('deleteCampaignId').value;
+
+        // In a real implementation, we would delete the campaign
+        alert('Campaign deleted successfully!');
+        document.getElementById('deleteCampaignModal').classList.remove('show');
+        document.getElementById('deleteCampaignModal').dispatchEvent(new Event('hidden.bs.modal'));
+        fetchCampaigns();
+    });
+
+    function fetchCampaigns() {
+        fetch('/api/v1/campaigns')
+            .then(response => response.json())
+            .then(campaigns => {
+                const tableBody = document.querySelector('#campaignsTable tbody');
+                tableBody.innerHTML = '';
+
+                campaigns.forEach(campaign => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${campaign.name}</td>
+                        <td>${campaign.type}</td>
+                        <td>
+                            <span class="badge bg-${campaign.status === 'active' ? 'success' : 'secondary'}">
+                                ${campaign.status}
+                            </span>
+                        </td>
+                        <td>${campaign.goal}</td>
+                        <td>${new Date(campaign.created_at).toLocaleString()}</td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#viewCampaignModal"
+                                        data-campaign-id="${campaign.id}">
+                                    <i class="bi bi-eye"></i> View
+                                </button>
+                                <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editCampaignModal"
+                                        data-campaign-id="${campaign.id}">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteCampaignModal"
+                                        data-campaign-id="${campaign.id}">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+
+                if (campaigns.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center">No campaigns found</td></tr>';
+                }
+            });
+    }
+});
+</script>
+{% endblock %}

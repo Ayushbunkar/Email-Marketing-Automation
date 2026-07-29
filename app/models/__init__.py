@@ -18,8 +18,10 @@ from app.models.segment import Segment
 from app.models.sequence import Sequence, SequenceStatus, SequenceStep
 from app.models.suppression import Suppression, SuppressionReason
 from app.models.template import Template
+from app.models.user import User
 
 __all__ = [
+    "User",
     "Contact",
     "LifecycleStage",
     "ContactStatus",

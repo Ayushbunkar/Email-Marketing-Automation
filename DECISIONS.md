@@ -99,7 +99,27 @@ This document records key implementation decisions made during the development o
 **Decision**: Fixed linting issues in the core application files (optimizer.py, inbox.py, test_basic.py). Left alembic files and other pre-existing code as-is for now.
 **Rationale**: Focus on fixing issues in the core application files first. Alembic files are auto-generated and should be reviewed separately.
 
-## Phase 2 - IMAP to Brevo Migration (IN PROGRESS)
+## Phase 3 - Docker Removal (IN PROGRESS)
+
+### 1. Docker Architecture Removal
+**Date**: 2026-07-28
+**Context**: The project was using Docker for local development with PostgreSQL and Redis containers.
+**Decision**: Completely remove Docker and transition to direct cloud service connections.
+**Rationale**: Using managed cloud services (Supabase, Upstash) eliminates local infrastructure requirements, simplifies development setup, and aligns with production architecture.
+
+### 2. Docker File Removal
+**Date**: 2026-07-28
+**Context**: docker-compose.yml defined PostgreSQL and Redis services.
+**Decision**: Deleted docker-compose.yml file.
+**Rationale**: No longer needed as the project connects directly to cloud services.
+
+### 3. Makefile Updates
+**Date**: 2026-07-28
+**Context**: Makefile contained Docker commands (up, down).
+**Decision**: Removed Docker commands and updated to Python-only setup.
+**Rationale**: Development now uses direct cloud connections instead of local containers.
+
+## Phase 2 - IMAP to Brevo Migration (COMPLETED)
 
 ### 1. IMAP Architecture Removal
 **Date**: 2026-07-28

@@ -2,11 +2,20 @@
 
 from enum import Enum
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import CITEXT, ENUM, UUID
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import CITEXT, UUID
 from sqlalchemy.sql import func
 
 from app.db import Base
+
+
+class ReplyStatus(str, Enum):
+    """Reply status."""
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    PROCESSED = "processed"
+    FAILED = "failed"
 
 
 class ReplyClass(str, Enum):
@@ -36,10 +45,10 @@ class Reply(Base):
     from_email = Column(CITEXT, nullable=False)
     subject = Column(Text)
     body_text = Column(Text, nullable=False)
-    classification = Column(ENUM(ReplyClass))
+    classification = Column(String(50))
     confidence = Column(JSON)
     draft_response = Column(Text)
-    handled = Column(JSON, nullable=False, server_default="false")
+    handled = Column(Boolean, nullable=False, server_default="false")
     received_at = Column(DateTime(timezone=True), nullable=False)
     brevo_message_id = Column(String(255), unique=True)
 

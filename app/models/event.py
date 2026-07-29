@@ -35,7 +35,7 @@ class Event(Base):
     message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id"))
     contact_id = Column(UUID(as_uuid=True), ForeignKey("contacts.id"))
     type = Column(
-        ENUM(EventType),
+        String(50),
         nullable=False,
     )
     payload = Column(JSON, nullable=False, server_default="{}")

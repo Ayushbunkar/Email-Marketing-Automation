@@ -1,9 +1,9 @@
 """Contact model and related types."""
 
 from enum import Enum
+from typing import Optional
 
-from sqlalchemy import ARRAY, JSON, Column, DateTime, Float, Index, Text
-from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import ARRAY, JSON, Column, DateTime, Float, Index, Text, String
 from sqlalchemy.dialects.postgresql import CITEXT, UUID
 from sqlalchemy.sql import func
 
@@ -50,12 +50,12 @@ class Contact(Base):
         server_default="{}",
     )
     lifecycle_stage = Column(
-        SQLEnum(LifecycleStage),
+        String(50),
         nullable=False,
         server_default="lead",
     )
     status = Column(
-        SQLEnum(ContactStatus),
+        String(50),
         nullable=False,
         server_default="active",
     )
@@ -81,6 +81,23 @@ class Contact(Base):
         Index("ix_contacts_status", "status"),
         Index("ix_contacts_lifecycle_stage", "lifecycle_stage"),
     )
+
+    @property
+    def phone(self) -> Optional[str]:
+        return self.attributes.get("phone")
+
+    @property
+    def job_title(self) -> Optional[str]:
+        return self.attributes.get("job_title")
+
+    @property
+    def custom_fields(self) -> dict:
+        # Exclude standard attributes we pull out
+        return {k: v for k, v in self.attributes.items() if k not in ["phone", "job_title"]}
+
+    @property
+    def segment_ids(self) -> list:
+        return []
 
     def __repr__(self) -> str:
         return f"<Contact(id={self.id}, email={self.email})>"

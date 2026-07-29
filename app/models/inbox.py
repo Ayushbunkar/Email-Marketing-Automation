@@ -3,6 +3,7 @@
 from enum import Enum
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, Text, func
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.sql import func
 
@@ -35,9 +36,9 @@ class InboxThread(Base):
     )
     subject = Column(String(255), nullable=False)
     status = Column(
-        ENUM(InboxStatus),
+        String(50),
         nullable=False,
-        server_default="unread",
+        server_default="UNREAD",
     )
     last_message_at = Column(DateTime(timezone=True))
 
@@ -90,10 +91,12 @@ class InboxMessage(Base):
     headers = Column(JSON)
     attachments = Column(JSON)
     status = Column(
-        ENUM(InboxStatus),
+        String(50),
         nullable=False,
-        server_default="unread",
+        server_default="UNREAD",
     )
+    
+    thread = relationship("InboxThread", backref="messages")
 
     created_at = Column(
         DateTime(timezone=True),

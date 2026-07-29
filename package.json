@@ -1,0 +1,47 @@
+{
+  "name": "email-marketing",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:worker\"",
+    "dev:frontend": "cd frontend/hermes-frontend && npm run dev",
+    "dev:backend": "uvicorn app.main:app --reload",
+    "dev:worker": "cd app && celery -A workers.celery_app worker -l info",
+    "dev:beat": "cd app && celery -A workers.celery_app beat -l info",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd frontend/hermes-frontend && npm run build",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@tanstack/react-form": "^1.33.2",
+    "@tanstack/react-query": "^5.101.4",
+    "@tanstack/react-router": "^1.170.18",
+    "@vitejs/plugin-react": "^6.0.4",
+    "autoprefixer": "^10.5.4",
+    "axios": "^1.18.1",
+    "class-variance-authority": "^0.7.1",
+    "framer-motion": "^12.42.2",
+    "jwt-decode": "^4.0.0",
+    "lucide-react": "^1.27.0",
+    "postcss": "^8.5.24",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.1",
+    "recharts": "^3.10.1",
+    "shadcn-ui": "^0.9.5",
+    "sonner": "^2.0.7",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.1.5",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tanstack/react-query-devtools": "^5.101.4",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-router-dom": "^5.3.3",
+    "concurrently": "^8.2.2",
+    "typescript": "^7.0.2"
+  }
+}
